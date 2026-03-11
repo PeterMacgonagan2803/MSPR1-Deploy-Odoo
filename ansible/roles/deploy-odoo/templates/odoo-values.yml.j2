@@ -1,0 +1,43 @@
+odooEmail: admin@cogip.local
+odooPassword: "admin"
+
+replicaCount: 1
+
+resources:
+  requests:
+    cpu: 500m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+service:
+  type: ClusterIP
+  ports:
+    http: 8069
+
+persistence:
+  enabled: true
+  storageClass: nfs-client
+  size: 5Gi
+
+postgresql:
+  enabled: true
+  auth:
+    postgresPassword: "odoo_pg_password"
+    database: odoo
+  primary:
+    persistence:
+      enabled: true
+      storageClass: nfs-client
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 250m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi
+
+ingress:
+  enabled: false

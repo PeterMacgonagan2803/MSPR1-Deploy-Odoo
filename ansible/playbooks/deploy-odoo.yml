@@ -1,0 +1,37 @@
+---
+# =============================================================================
+# Playbook Odoo - Déploiement de l'ERP sur le cluster K3s
+# =============================================================================
+# Déploie sur le cluster K3s :
+#   - nfs-subdir-external-provisioner (StorageClass NFS)
+#   - cert-manager (certificats TLS autosignés)
+#   - Odoo via Helm (chart Bitnami) + PostgreSQL
+#   - Ingress Traefik pour accès HTTPS
+#
+# Usage: ansible-playbook playbooks/deploy-odoo.yml
+# =============================================================================
+
+- name: "Odoo : Déploiement de l'applicatif et de ses dépendances"
+  hosts: k3s_server
+  become: true
+  roles:
+    - deploy-odoo
+
+  post_tasks:
+    - name: Résumé du déploiement
+      ansible.builtin.debug:
+        msg:
+          - "=========================================="
+          - "  Déploiement MSPR COGIP terminé !"
+          - "=========================================="
+          - ""
+          - "  Odoo est accessible via :"
+          - "  https://{{ odoo_domain | default('odoo.local') }}"
+          - ""
+          - "  Identifiants par défaut :"
+          - "  Email : admin@cogip.local"
+          - "  Mot de passe : admin"
+          - ""
+          - "  N'oubliez pas d'ajouter dans /etc/hosts :"
+          - "  {{ ansible_host }} {{ odoo_domain | default('odoo.local') }}"
+          - "=========================================="

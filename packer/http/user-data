@@ -1,0 +1,25 @@
+#cloud-config
+autoinstall:
+  version: 1
+  locale: fr_FR.UTF-8
+  keyboard:
+    layout: fr
+  identity:
+    hostname: ubuntu-k3s
+    username: ubuntu
+    password: "$6$rounds=4096$randomsalt$HashedPasswordHere"
+  ssh:
+    install-server: true
+    allow-pw: true
+  storage:
+    layout:
+      name: lvm
+  packages:
+    - qemu-guest-agent
+    - curl
+    - wget
+    - sudo
+  late-commands:
+    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu
+    - chmod 440 /target/etc/sudoers.d/ubuntu
+    - systemctl enable qemu-guest-agent --root=/target

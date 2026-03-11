@@ -1,0 +1,40 @@
+# Terraform
+terraform/.terraform/
+terraform/*.tfstate
+terraform/*.tfstate.backup
+terraform/*.tfplan
+terraform/.terraform.lock.hcl
+terraform/terraform.tfvars
+
+# Packer
+packer/*.log
+packer/output-*/
+
+# Ansible
+ansible/*.retry
+ansible/**/*.retry
+
+# Secrets
+*.pem
+*.key
+id_rsa*
+*.env
+.env
+secrets/
+credentials.json
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Kubeconfig
+kubeconfig
+kubeconfig.yml
+kubeconfig.yaml
