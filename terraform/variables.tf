@@ -78,3 +78,27 @@ variable "ip_nfs" {
   type        = string
   description = "Adresse IP du serveur NFS (ex: 10.0.0.13/24)"
 }
+
+variable "ssh_private_key_path" {
+  type        = string
+  default     = "~/.ssh/id_rsa"
+  description = "Chemin vers la clé privée SSH (pour l'inventaire Ansible)"
+}
+
+variable "k3s_version" {
+  type        = string
+  default     = "v1.29.2+k3s1"
+  description = "Version de K3s à installer"
+}
+
+variable "odoo_domain" {
+  type        = string
+  default     = "odoo.local"
+  description = "Nom de domaine pour l'accès à Odoo"
+}
+
+variable "nfs_export_path" {
+  type        = string
+  default     = "/srv/nfs/k8s"
+  description = "Chemin d'export NFS sur le serveur"
+}

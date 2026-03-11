@@ -116,3 +116,24 @@
 - name: Afficher l'état du déploiement Odoo
   ansible.builtin.debug:
     msg: "{{ odoo_status.stdout_lines }}"
+
+- name: Récupérer l'IP du service Odoo dans le cluster
+  ansible.builtin.shell: |
+    kubectl get svc -n odoo odoo -o jsonpath='{.spec.clusterIP}'
+  register: odoo_svc_ip
+  changed_when: false
+
+- name: Health check - Vérifier qu'Odoo répond en HTTP
+  ansible.builtin.uri:
+    url: "http://{{ odoo_svc_ip.stdout }}:8069/web/database/selector"
+    method: GET
+    status_code: 200
+    timeout: 30
+  register: odoo_health
+  retries: 12
+  delay: 15
+  until: odoo_health.status == 200
+
+- name: Health check réussi
+  ansible.builtin.debug:
+    msg: "Odoo est opérationnel (HTTP {{ odoo_health.status }}) sur {{ odoo_svc_ip.stdout }}:8069"

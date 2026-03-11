@@ -22,6 +22,8 @@ id_rsa*
 .env
 secrets/
 credentials.json
+.vault_pass
+ansible/inventory/hosts.yml
 
 # OS
 .DS_Store

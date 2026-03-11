@@ -1,15 +1,15 @@
-odooEmail: admin@cogip.local
-odooPassword: "admin"
+odooEmail: {{ odoo_email | default('admin@cogip.local') }}
+odooPassword: "{{ vault_odoo_password }}"
 
-replicaCount: 1
+replicaCount: {{ odoo_replica_count | default(1) }}
 
 resources:
   requests:
-    cpu: 500m
-    memory: 512Mi
+    cpu: {{ odoo_cpu_request | default('500m') }}
+    memory: {{ odoo_memory_request | default('512Mi') }}
   limits:
-    cpu: "1"
-    memory: 1Gi
+    cpu: "{{ odoo_cpu_limit | default('1') }}"
+    memory: {{ odoo_memory_limit | default('1Gi') }}
 
 service:
   type: ClusterIP
@@ -18,26 +18,26 @@ service:
 
 persistence:
   enabled: true
-  storageClass: nfs-client
-  size: 5Gi
+  storageClass: {{ nfs_storage_class | default('nfs-client') }}
+  size: {{ odoo_pv_size | default('5Gi') }}
 
 postgresql:
   enabled: true
   auth:
-    postgresPassword: "odoo_pg_password"
-    database: odoo
+    postgresPassword: "{{ vault_pg_password }}"
+    database: {{ pg_database | default('odoo') }}
   primary:
     persistence:
       enabled: true
-      storageClass: nfs-client
-      size: 5Gi
+      storageClass: {{ nfs_storage_class | default('nfs-client') }}
+      size: {{ pg_pv_size | default('5Gi') }}
     resources:
       requests:
-        cpu: 250m
-        memory: 256Mi
+        cpu: {{ pg_cpu_request | default('250m') }}
+        memory: {{ pg_memory_request | default('256Mi') }}
       limits:
-        cpu: 500m
-        memory: 512Mi
+        cpu: {{ pg_cpu_limit | default('500m') }}
+        memory: {{ pg_memory_limit | default('512Mi') }}
 
 ingress:
   enabled: false

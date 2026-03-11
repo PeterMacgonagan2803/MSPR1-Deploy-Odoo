@@ -29,10 +29,10 @@ source "proxmox-iso" "ubuntu-k3s" {
   scsi_controller = "virtio-scsi-single"
 
   disks {
-    type              = "scsi"
-    disk_size         = "30G"
-    storage_pool      = var.storage_pool
-    format            = "raw"
+    type         = "scsi"
+    disk_size    = "30G"
+    storage_pool = var.storage_pool
+    format       = "raw"
   }
 
   network_adapters {
@@ -59,6 +59,10 @@ source "proxmox-iso" "ubuntu-k3s" {
   ssh_username = var.ssh_username
   ssh_password = var.ssh_password
   ssh_timeout  = "30m"
+}
+
+build {
+  sources = ["source.proxmox-iso.ubuntu-k3s"]
 
   provisioner "shell" {
     inline = [
@@ -72,8 +76,4 @@ source "proxmox-iso" "ubuntu-k3s" {
       "sudo truncate -s 0 /etc/machine-id"
     ]
   }
-}
-
-build {
-  sources = ["source.proxmox-iso.ubuntu-k3s"]
 }

@@ -1,0 +1,31 @@
+---
+# =============================================================================
+# Variables globales - MSPR COGIP
+# =============================================================================
+
+# K3s
+k3s_version: "v1.29.2+k3s1"
+
+# Odoo
+odoo_domain: "odoo.local"
+odoo_email: "admin@cogip.local"
+odoo_replica_count: 1
+
+# NFS
+nfs_export_path: /srv/nfs/k8s
+nfs_storage_class: nfs-client
+
+# Ressources Odoo
+odoo_cpu_request: "500m"
+odoo_cpu_limit: "1"
+odoo_memory_request: "512Mi"
+odoo_memory_limit: "1Gi"
+odoo_pv_size: "5Gi"
+
+# Ressources PostgreSQL
+pg_cpu_request: "250m"
+pg_cpu_limit: "500m"
+pg_memory_request: "256Mi"
+pg_memory_limit: "512Mi"
+pg_pv_size: "5Gi"
+pg_database: "odoo"

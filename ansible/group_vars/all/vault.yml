@@ -1,0 +1,18 @@
+---
+# =============================================================================
+# Secrets chiffrés via Ansible Vault
+# =============================================================================
+# Pour chiffrer ce fichier :
+#   ansible-vault encrypt ansible/group_vars/all/vault.yml
+#
+# Pour éditer :
+#   ansible-vault edit ansible/group_vars/all/vault.yml
+#
+# Pour lancer les playbooks avec le vault :
+#   ansible-playbook playbooks/site.yml --ask-vault-pass
+#   ou
+#   ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
+# =============================================================================
+
+vault_odoo_password: "Ch4ng3M3!Odoo2026"
+vault_pg_password: "Ch4ng3M3!Pg2026"

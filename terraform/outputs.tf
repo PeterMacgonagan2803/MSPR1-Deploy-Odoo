@@ -29,14 +29,3 @@ output "vm_info" {
     }
   }
 }
-
-output "ansible_inventory_hint" {
-  description = "Aide pour la configuration de l'inventaire Ansible"
-  value       = <<-EOT
-    Mettez à jour ansible/inventory/hosts.yml avec les IPs suivantes :
-    - control_plane: ${split("/", var.ip_control_plane)[0]}
-    - worker_1:      ${split("/", var.ip_worker_1)[0]}
-    - worker_2:      ${split("/", var.ip_worker_2)[0]}
-    - nfs_server:    ${split("/", var.ip_nfs)[0]}
-  EOT
-}
