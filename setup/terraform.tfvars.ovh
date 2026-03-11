@@ -1,0 +1,39 @@
+# =============================================================================
+# Configuration Terraform pour OVH + Proxmox
+# =============================================================================
+# INSTRUCTIONS :
+#   1. Copie ce fichier dans terraform/ : Copy-Item setup\terraform.tfvars.ovh terraform\terraform.tfvars
+#   2. Remplis les valeurs marquées <A_REMPLIR>
+#   3. NE COMMITTE JAMAIS ce fichier (il est dans .gitignore)
+# =============================================================================
+
+# --- Proxmox ---
+proxmox_url          = "https://<IP_PUBLIQUE_OVH>:8006/api2/json"
+proxmox_token_id     = "root@pam!terraform"
+proxmox_token_secret = "<TOKEN_SECRET_A_REMPLIR>"
+proxmox_node         = "<NOM_NOEUD_PROXMOX>"
+
+# --- Template ---
+template_name  = "ubuntu-k3s-template"
+storage_pool   = "local-lvm"
+network_bridge = "vmbr1"
+
+# --- SSH ---
+ssh_user       = "ubuntu"
+ssh_public_key = "<COLLER_ICI_LE_CONTENU_DE_id_mspr.pub>"
+
+# --- Réseau (bridge interne vmbr1) ---
+gateway    = "10.10.10.1"
+nameserver = "8.8.8.8"
+
+# IPs des VMs (réseau interne NAT)
+ip_control_plane = "10.10.10.10/24"
+ip_worker_1      = "10.10.10.11/24"
+ip_worker_2      = "10.10.10.12/24"
+ip_nfs           = "10.10.10.13/24"
+
+# --- Ansible (auto-généré) ---
+ssh_private_key_path = "~/.ssh/id_mspr"
+k3s_version          = "v1.29.2+k3s1"
+odoo_domain          = "odoo.local"
+nfs_export_path      = "/srv/nfs/k8s"
