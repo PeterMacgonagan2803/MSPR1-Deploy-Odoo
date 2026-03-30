@@ -20,7 +20,6 @@ source "proxmox-iso" "ubuntu-k3s" {
   vm_id                = var.vm_id
   vm_name              = "ubuntu-k3s-template"
   template_description = "Ubuntu 22.04 LTS - Template K3s pour MSPR COGIP (via Packer)"
-  template_name        = "ubuntu-k3s-template"
 
   os       = "l26"
   cpu_type = "host"
@@ -42,16 +41,12 @@ source "proxmox-iso" "ubuntu-k3s" {
     firewall = false
   }
 
-  additional_iso_files {
-    cd_files         = ["./http/user-data", "./http/meta-data"]
-    cd_label         = "cidata"
-    iso_storage_pool = "local"
-    unmount          = true
-  }
+  http_directory    = "http"
+  http_bind_address = "10.10.10.1"
 
   boot_command = [
     "c<wait3>",
-    "linux /casper/vmlinuz --- autoinstall ds=nocloud<enter><wait3>",
+    "linux /casper/vmlinuz --- autoinstall ip=10.10.10.99::10.10.10.1:255.255.255.0:::off ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/<enter><wait3>",
     "initrd /casper/initrd<enter><wait3>",
     "boot<enter>"
   ]
@@ -61,6 +56,7 @@ source "proxmox-iso" "ubuntu-k3s" {
   ssh_username = var.ssh_username
   ssh_password = var.ssh_password
   ssh_timeout  = "30m"
+  ssh_host     = "10.10.10.99"
 }
 
 build {
@@ -76,12 +72,6 @@ build {
       "sudo apt-get clean",
       "sudo cloud-init clean",
       "sudo truncate -s 0 /etc/machine-id"
-    ]
-  }
-
-  provisioner "shell-local" {
-    inline = [
-      "ssh -o StrictHostKeyChecking=no root@127.0.0.1 'qm set ${var.vm_id} --ide2 ${var.storage_pool}:cloudinit && echo cloud-init drive added'"
     ]
   }
 }
