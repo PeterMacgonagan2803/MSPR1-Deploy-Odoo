@@ -31,11 +31,21 @@ pip install ansible ansible-lint
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
 Write-Host "`n=== Vérification des installations ===" -ForegroundColor Cyan
-Write-Host "Terraform : " -NoNewline; terraform --version 2>$null || Write-Host "NON INSTALLE" -ForegroundColor Red
-Write-Host "Packer    : " -NoNewline; packer --version 2>$null || Write-Host "NON INSTALLE" -ForegroundColor Red
-Write-Host "Helm      : " -NoNewline; helm version --short 2>$null || Write-Host "NON INSTALLE" -ForegroundColor Red
-Write-Host "kubectl   : " -NoNewline; kubectl version --client --short 2>$null || Write-Host "NON INSTALLE" -ForegroundColor Red
-Write-Host "Ansible   : " -NoNewline; ansible --version 2>$null || Write-Host "NON INSTALLE" -ForegroundColor Red
+
+Write-Host "Terraform : " -NoNewline
+try { terraform --version 2>$null } catch { Write-Host "NON INSTALLE" -ForegroundColor Red }
+
+Write-Host "Packer    : " -NoNewline
+try { packer --version 2>$null } catch { Write-Host "NON INSTALLE" -ForegroundColor Red }
+
+Write-Host "Helm      : " -NoNewline
+try { helm version --short 2>$null } catch { Write-Host "NON INSTALLE" -ForegroundColor Red }
+
+Write-Host "kubectl   : " -NoNewline
+try { kubectl version --client --short 2>$null } catch { Write-Host "NON INSTALLE" -ForegroundColor Red }
+
+Write-Host "Ansible   : " -NoNewline
+try { ansible --version 2>$null } catch { Write-Host "NON INSTALLE" -ForegroundColor Red }
 
 Write-Host "`n=== Installation terminée ===" -ForegroundColor Green
 Write-Host "Si certains outils ne sont pas detectes, fermez et rouvrez PowerShell pour rafraichir le PATH." -ForegroundColor Yellow
