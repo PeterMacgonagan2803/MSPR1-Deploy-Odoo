@@ -20,6 +20,7 @@ source "proxmox-iso" "ubuntu-k3s" {
   vm_id                = var.vm_id
   vm_name              = "ubuntu-k3s-template"
   template_description = "Ubuntu 22.04 LTS - Template K3s pour MSPR COGIP (via Packer)"
+  template_name        = "ubuntu-k3s-template"
 
   os       = "l26"
   cpu_type = "host"
@@ -41,13 +42,11 @@ source "proxmox-iso" "ubuntu-k3s" {
     firewall = false
   }
 
-  cloud_init              = true
-  cloud_init_storage_pool = var.storage_pool
-
   additional_iso_files {
     cd_files         = ["./http/user-data", "./http/meta-data"]
     cd_label         = "cidata"
     iso_storage_pool = "local"
+    unmount          = true
   }
 
   boot_command = [
@@ -77,6 +76,12 @@ build {
       "sudo apt-get clean",
       "sudo cloud-init clean",
       "sudo truncate -s 0 /etc/machine-id"
+    ]
+  }
+
+  provisioner "shell-local" {
+    inline = [
+      "ssh -o StrictHostKeyChecking=no root@127.0.0.1 'qm set ${var.vm_id} --ide2 ${var.storage_pool}:cloudinit && echo cloud-init drive added'"
     ]
   }
 }
