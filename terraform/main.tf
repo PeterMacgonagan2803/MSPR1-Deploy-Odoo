@@ -61,7 +61,7 @@ resource "proxmox_virtual_environment_vm" "k3s_cluster" {
   }
 
   agent {
-    enabled = true
+    enabled = false
   }
 
   disk {

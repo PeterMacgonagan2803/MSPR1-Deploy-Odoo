@@ -1,3 +1,8 @@
+image:
+  registry: docker.io
+  repository: bitnami/odoo
+  tag: 18.0.20251005-debian-12-r0
+
 odooEmail: {{ odoo_email | default('admin@cogip.local') }}
 odooPassword: "{{ vault_odoo_password }}"
 
