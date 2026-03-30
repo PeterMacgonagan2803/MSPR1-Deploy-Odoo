@@ -4,15 +4,19 @@ metadata:
   name: odoo-ingress
   namespace: odoo
   annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+{% if enable_cert_manager | default(false) %}
     cert-manager.io/cluster-issuer: selfsigned-issuer
-    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
+{% endif %}
 spec:
   ingressClassName: traefik
+{% if enable_cert_manager | default(false) %}
   tls:
     - hosts:
         - {{ odoo_domain | default('odoo.local') }}
       secretName: odoo-tls
+{% endif %}
   rules:
     - host: {{ odoo_domain | default('odoo.local') }}
       http:

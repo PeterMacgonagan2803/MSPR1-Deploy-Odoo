@@ -14,6 +14,7 @@
     name: jetstack
     repo_url: https://charts.jetstack.io
     kubeconfig: "{{ kubeconfig_path }}"
+  when: enable_cert_manager | default(false)
 
 # --- NFS Provisioner ---
 
@@ -38,7 +39,7 @@
     wait: true
     timeout: "5m0s"
 
-# --- cert-manager ---
+# --- cert-manager (optionnel, desactive si quay.io indisponible) ---
 
 - name: Déployer cert-manager via Helm
   kubernetes.core.helm:
@@ -49,29 +50,21 @@
     kubeconfig: "{{ kubeconfig_path }}"
     values:
       installCRDs: true
-      image:
-        repository: docker.io/jetstack/cert-manager-controller
-      webhook:
-        image:
-          repository: docker.io/jetstack/cert-manager-webhook
-      cainjector:
-        image:
-          repository: docker.io/jetstack/cert-manager-cainjector
-      startupapicheck:
-        image:
-          repository: docker.io/jetstack/cert-manager-startupapicheck
     wait: true
     timeout: "10m0s"
+  when: enable_cert_manager | default(false)
 
 - name: Attendre que cert-manager soit prêt
   ansible.builtin.pause:
     seconds: 15
+  when: enable_cert_manager | default(false)
 
 - name: Créer le ClusterIssuer autosigné
   kubernetes.core.k8s:
     kubeconfig: "{{ kubeconfig_path }}"
     state: present
     definition: "{{ lookup('template', 'cert-manager-issuer.yml.j2') | from_yaml }}"
+  when: enable_cert_manager | default(false)
 
 # --- PostgreSQL (image officielle) ---
 
