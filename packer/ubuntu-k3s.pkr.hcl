@@ -44,12 +44,15 @@ source "proxmox-iso" "ubuntu-k3s" {
   cloud_init              = true
   cloud_init_storage_pool = var.storage_pool
 
-  http_directory    = "http"
-  http_bind_address = var.http_bind_address
+  additional_iso_files {
+    cd_files         = ["./http/user-data", "./http/meta-data"]
+    cd_label         = "cidata"
+    iso_storage_pool = "local"
+  }
 
   boot_command = [
     "c<wait3>",
-    "linux /casper/vmlinuz --- autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/<enter><wait3>",
+    "linux /casper/vmlinuz --- autoinstall ds=nocloud<enter><wait3>",
     "initrd /casper/initrd<enter><wait3>",
     "boot<enter>"
   ]

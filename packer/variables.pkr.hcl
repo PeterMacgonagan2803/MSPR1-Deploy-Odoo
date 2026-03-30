@@ -45,12 +45,6 @@ variable "network_bridge" {
   description = "Bridge reseau prive NAT"
 }
 
-variable "http_bind_address" {
-  type        = string
-  default     = "10.10.10.1"
-  description = "IP gateway vmbr1 - le serveur HTTP Packer ecoute ici pour que la VM puisse le joindre"
-}
-
 variable "ssh_username" {
   type        = string
   default     = "ubuntu"
