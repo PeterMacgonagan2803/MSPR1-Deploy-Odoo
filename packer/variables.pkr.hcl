@@ -21,7 +21,7 @@ variable "proxmox_node" {
 
 variable "iso_file" {
   type        = string
-  default     = "local:iso/ubuntu-22.04.4-live-server-amd64.iso"
+  default     = "local:iso/ubuntu-22.04.5-live-server-amd64.iso"
   description = "Chemin de l'ISO Ubuntu sur le stockage Proxmox"
 }
 

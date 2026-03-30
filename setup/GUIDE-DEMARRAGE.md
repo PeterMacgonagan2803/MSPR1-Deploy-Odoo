@@ -59,30 +59,35 @@ L'API Token permet à Terraform de communiquer avec Proxmox **sans utiliser le m
 1. Dans Proxmox : **Datacenter → Permissions → API Tokens → Add**
 2. Remplis :
    - User : `root@pam`
-   - Token ID : `terraform`
+   - Token ID : ` `
    - **Décocher** "Privilege Separation" (sinon le token n'a pas les droits)
 3. **COPIE le Token Secret** qui s'affiche (il ne sera plus jamais affiché !)
 4. Note :
    - **Token ID** : `root@pam!terraform`
    - **Token Secret** : `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
 
+   root@pam!terraform
+   737745b6-acf2-4e5f-9df7-b52aabc4815b
+   
+
 ---
 
 ## Étape 3 : Uploader l'ISO Ubuntu
 
-1. Télécharge l'ISO Ubuntu 22.04.4 LTS Server :
+1. Télécharge l'ISO Ubuntu 22.04.5 LTS Server :
    ```
-   https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+   https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso
    ```
+   Ou utilise celle que tu as déjà dans tes Téléchargements (`ubuntu-22.04.5-live-server-amd64`).
 2. Dans Proxmox : **local (pve) → ISO Images → Upload**
 3. Sélectionne l'ISO et upload
-4. Note le nom exact du fichier (ex: `ubuntu-22.04.4-live-server-amd64.iso`)
+4. Note le nom exact du fichier : `ubuntu-22.04.5-live-server-amd64.iso`
 
 **Alternative via SSH** (plus rapide) :
 ```bash
 ssh root@<IP-SERVEUR-OVH>
 cd /var/lib/vz/template/iso/
-wget https://releases.ubuntu.com/22.04/ubuntu-22.04.4-live-server-amd64.iso
+wget https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso
 ```
 
 ---
@@ -154,7 +159,7 @@ packer build \
   -var "proxmox_username=root@pam" \
   -var "proxmox_password=<MOT_DE_PASSE>" \
   -var "proxmox_node=<NOM_NOEUD>" \
-  -var "iso_file=local:iso/ubuntu-22.04.4-live-server-amd64.iso" \
+  -var "iso_file=local:iso/ubuntu-22.04.5-live-server-amd64.iso" \
   -var "storage_pool=local-lvm" \
   .
 ```
