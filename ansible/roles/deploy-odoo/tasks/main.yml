@@ -49,6 +49,17 @@
     kubeconfig: "{{ kubeconfig_path }}"
     values:
       installCRDs: true
+      image:
+        repository: docker.io/jetstack/cert-manager-controller
+      webhook:
+        image:
+          repository: docker.io/jetstack/cert-manager-webhook
+      cainjector:
+        image:
+          repository: docker.io/jetstack/cert-manager-cainjector
+      startupapicheck:
+        image:
+          repository: docker.io/jetstack/cert-manager-startupapicheck
     wait: true
     timeout: "10m0s"
 
