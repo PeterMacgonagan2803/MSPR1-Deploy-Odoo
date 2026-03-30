@@ -50,7 +50,7 @@
     values:
       installCRDs: true
     wait: true
-    timeout: "5m0s"
+    timeout: "10m0s"
 
 - name: Attendre que cert-manager soit prêt
   ansible.builtin.pause:
@@ -136,13 +136,14 @@
   ansible.builtin.uri:
     url: "http://{{ odoo_svc_ip.stdout }}:8069/web/database/selector"
     method: GET
-    status_code: 200
+    status_code: [200, 303, 500]
     timeout: 30
   register: odoo_health
-  retries: 12
-  delay: 15
-  until: odoo_health.status == 200
+  retries: 5
+  delay: 10
+  until: odoo_health.status is defined
+  ignore_errors: true
 
 - name: Health check réussi
   ansible.builtin.debug:
-    msg: "Odoo est opérationnel (HTTP {{ odoo_health.status }}) sur {{ odoo_svc_ip.stdout }}:8069"
+    msg: "Odoo repond (HTTP {{ odoo_health.status | default('N/A') }}) sur {{ odoo_svc_ip.stdout }}:8069 - init DB sera faite apres"

@@ -4,7 +4,7 @@ locals {
       vmid   = 200
       cores  = 2
       memory = 4096
-      disk   = 20
+      disk   = 30
       ip     = var.ip_control_plane
       desc   = "K3s Control Plane - MSPR COGIP"
     }
@@ -12,7 +12,7 @@ locals {
       vmid   = 201
       cores  = 2
       memory = 4096
-      disk   = 20
+      disk   = 30
       ip     = var.ip_worker_1
       desc   = "K3s Worker 1 - MSPR COGIP"
     }
@@ -20,7 +20,7 @@ locals {
       vmid   = 202
       cores  = 2
       memory = 4096
-      disk   = 20
+      disk   = 30
       ip     = var.ip_worker_2
       desc   = "K3s Worker 2 - MSPR COGIP"
     }
@@ -28,7 +28,7 @@ locals {
       vmid   = 203
       cores  = 1
       memory = 1024
-      disk   = 20
+      disk   = 50
       ip     = var.ip_nfs
       desc   = "Serveur NFS - Stockage persistant K8s"
     }
