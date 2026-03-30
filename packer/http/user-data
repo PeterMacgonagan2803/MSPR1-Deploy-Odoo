@@ -3,7 +3,8 @@ autoinstall:
   version: 1
   locale: en_US.UTF-8
   keyboard:
-    layout: fr
+    layout: us
+    variant: ""
   identity:
     hostname: ubuntu-k3s
     username: ubuntu
@@ -14,13 +15,7 @@ autoinstall:
   storage:
     layout:
       name: lvm
-  packages:
-    - qemu-guest-agent
-    - curl
-    - wget
-    - sudo
   late-commands:
-    - "echo 'ubuntu:ubuntu' | chroot /target chpasswd"
-    - "echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu"
-    - "chmod 440 /target/etc/sudoers.d/ubuntu"
-    - "chroot /target systemctl enable qemu-guest-agent"
+    - "curtin in-target -- bash -c 'echo ubuntu:ubuntu | chpasswd'"
+    - "curtin in-target -- bash -c 'echo \"ubuntu ALL=(ALL) NOPASSWD:ALL\" > /etc/sudoers.d/ubuntu'"
+    - "curtin in-target -- chmod 440 /etc/sudoers.d/ubuntu"
