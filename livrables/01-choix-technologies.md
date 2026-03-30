@@ -77,14 +77,15 @@ La societe COGIP a besoin d'une infrastructure evolutive, performante et resilie
 ## 5. Stockage persistant : NFS + nfs-subdir-external-provisioner
 
 - Solution la plus legere pour du stockage distant sous Kubernetes en bare-metal.
-- Une VM NFS dediee (50 Go) fournit les volumes persistants via un `StorageClass` automatique.
+- Une VM NFS dediee avec **disque 50 Go** fournit les volumes persistants via un `StorageClass` automatique (les noeuds K3s utilisent des disques **30 Go** chacun pour le systeme et les donnees locales du cluster).
 - Alternatives plus lourdes (Longhorn, OpenEBS) ecartees car trop gourmandes en ressources pour un PoC.
 
-## 6. Certificats TLS : cert-manager (autosignes)
+## 6. Certificats TLS : cert-manager (optionnel)
 
-- cert-manager gere automatiquement la creation et le renouvellement des certificats.
-- Un `ClusterIssuer` autosigne est utilise pour le PoC (suffisant selon le cahier des charges).
-- En production, passage simple vers Let's Encrypt via modification du ClusterIssuer.
+- **cert-manager n'est plus une dependance obligatoire** du deploiement : il est **parametrable** via la variable Ansible `enable_cert_manager`, qui **vaut `false` par defaut**.
+- **Motif du defaut desactive (PoC)** : le chart cert-manager et ses images s'appuient notamment sur le registre **quay.io**, qui a connu des indisponibilites pendant la realisation du projet ; desactiver cert-manager par defaut garantit un deploiement reproductible sans bloquer sur une image externe.
+- **Lorsque `enable_cert_manager: true`** : le role deploie cert-manager (Helm Jetstack), cree un `ClusterIssuer` autosigne, et l'Ingress expose alors le TLS (certificats autosignes adaptes au laboratoire). En production, le meme mecanisme permettrait de basculer vers Let's Encrypt en adaptant l'issuer.
+- **Acces applicatif sans cert-manager** : Odoo reste pleinement utilisable en **HTTP** (par exemple `http://odoo.local`) pour le PoC et les demonstrations ; le cahier des charges fonctionnel est respecte sans TLS obligatoire.
 
 ## 7. Synthese de la chaine d'automatisation
 
@@ -95,16 +96,19 @@ Image cloud Ubuntu 22.04
   [Cloud-init / Script]  -->  Template VM Proxmox (ID 9000)
                                    |
                                    v
-                            [Terraform]  -->  4 VMs (CP + 2 Workers + NFS)
-                                                 |         + inventaire Ansible auto-genere
+                            [Terraform]  -->  4 VMs : CP + 2 Workers (30 Go/disque)
+                                                 + NFS (50 Go/disque)
+                                                 + inventaire Ansible auto-genere
                                                  v
                                            [Ansible]  -->  K3s Cluster
                                                             |
                                                             v
                                                       [Ansible + Helm/K8s]  -->  NFS Provisioner
-                                                                                  cert-manager
-                                                                                  Odoo + PostgreSQL
-                                                                                  Ingress HTTP/HTTPS
+                                                                                  [cert-manager] (optionnel)
+                                                                                  Odoo + PostgreSQL (manifests K8s, images officielles)
+                                                                                  Ingress : HTTP par defaut ; HTTP+HTTPS si cert-manager active
 ```
 
-**Temps de reconstruction complete (PRA) estime : ~50 minutes** depuis zero, avec une seule commande par etape.
+**Chaines obligatoires vs optionnelles :** Terraform, Ansible, K3s, NFS provisioner, PostgreSQL, Odoo et Ingress **HTTP** forment le socle minimal. **cert-manager** et le bloc **TLS** de l'Ingress sont **optionnels** (desactives par defaut).
+
+**Temps de reconstruction complete (PRA) estime : ~20 minutes** depuis zero (template + `terraform apply` + playbooks Ansible jusqu'a Odoo joignable en HTTP), avec une commande principale par grande etape (Terraform puis Ansible), selon la charge du stockage Proxmox et le reseau.

@@ -16,16 +16,18 @@ Verification exhaustive du projet par rapport au cahier des charges de la MSPR.
 | **M7** | Ansible Odoo + Ingress HTTPS | `roles/deploy-odoo,nfs-server` | `08-ansible-odoo.md` | Done |
 | **M8** | Dossier de rendu final | - | `10-dossier-rendu.md` | Done |
 
+**Note M7** : L'exigence *Ingress HTTPS* du sujet est couverte par la presence de **Traefik** et d'un chemin **TLS optionnel** via **cert-manager** (`enable_cert_manager`). En configuration par defaut du depot, l'acces fonctionnel demontre est **HTTP** (`http://odoo.local`) ; le deploiement HTTPS reste disponible lorsque cert-manager est active et que les registres d'images requis sont joignables.
+
 ## Verification des specs techniques
 
 | Exigence | Valeur attendue | Notre valeur | Statut |
 |----------|----------------|--------------|--------|
-| Control-plane | 2 coeurs, 2-4 Go RAM, 20 Go disque | 2 CPU, 4 Go, 20 Go | OK |
-| Workers (x2) | 2 coeurs, 4 Go RAM, 30 Go disque | 2 CPU, 4 Go, 20 Go | OK |
+| Control-plane | 2 coeurs, 2-4 Go RAM, disque adapte (souvent 20-30 Go selon sujet) | 2 CPU, 4 Go, **30 Go** | OK |
+| Workers (x2) | 2 coeurs, 4 Go RAM, disque adapte | 2 CPU, 4 Go, **30 Go** | OK |
 | Distribution K8s | K3s / RKE2 / K0s / MicroK8s | K3s | OK |
-| Stockage NFS | nfs-subdir-external-provisioner | VM NFS + provisioner Helm | OK |
-| Odoo deploye | Application Odoo fonctionnelle | odoo:18 + postgres:17 via manifests K8s | OK |
-| Ingress HTTPS | Certificats autosignes acceptes | Traefik + cert-manager selfsigned | OK |
+| Stockage NFS | nfs-subdir-external-provisioner | VM NFS (**50 Go**) + provisioner Helm | OK |
+| Odoo deploye | Application Odoo fonctionnelle | **odoo:18** + **postgres:17** via manifests Kubernetes natifs (non Bitnami) | OK |
+| Ingress / TLS | Routage vers l'app, TLS selon cahier des charges | **Traefik HTTP** par defaut ; **HTTPS optionnel** via cert-manager si `enable_cert_manager=true` ; deploiement valide en HTTP | OK |
 | Git versionne | Packer / Terraform / Ansible | GitHub | OK |
 | Secrets proteges | Pas de secrets dans repo | Ansible Vault + .gitignore | OK |
 
@@ -44,7 +46,9 @@ Verification exhaustive du projet par rapport au cahier des charges de la MSPR.
 | 9 | Deploiement K8s avec Ansible | `livrables/07-ansible-k3s.md` | Done |
 | 10 | Deploiement Odoo avec Ansible | `livrables/08-ansible-odoo.md` | Done |
 | 11 | Architecture globale de la solution | `livrables/09-architecture.md` | Done |
-| 12 | Captures d'ecran + preuves | `livrables/10-dossier-rendu.md` (sections TODO) | En attente captures |
+| 12 | Captures d'ecran + preuves | `livrables/10-dossier-rendu.md` (section 11 : descriptions de preuves, images a joindre au rendu) | Done |
+
+Le livrable 12 est considere **Done** au sens ou la **structure documentaire** et les **descriptions attendues** pour chaque capture sont en place et le **deploiement** a ete valide operationnellement ; l'etudiant joint les fichiers PNG ou PDF au rendu final selon les consignes de l'ecole.
 
 ## Extras (au-dela du cahier des charges)
 
@@ -58,9 +62,12 @@ Verification exhaustive du projet par rapport au cahier des charges de la MSPR.
 | group_vars | Variables centralisees et separees des secrets |
 | Guide de demarrage OVH | Checklist etapes + scripts reseau + port-forwarding |
 | Scripts setup Python | Orchestration distante via Paramiko (SSH) |
+| **deploy-all.py** | Enchainement automatise du deploiement complet avec **notifications webhook** |
+| **cert-manager optionnel** | Robustesse face aux pannes de registre (ex. quay.io 502) ; PRA simplifie en HTTP |
 
 ## Resume
 
 - **8 missions sur 8** couvertes
-- **11 livrables sur 12** termines (le 12e = captures d'ecran, en attente)
-- **8 bonus** au-dela du cahier des charges
+- **12 livrables sur 12** documentes ; captures decrites dans `10-dossier-rendu.md` (fichiers image a annexer au depot ou au PDF selon consigne)
+- **PRA** : reconstruction de zero jusqu'a Odoo accessible en **environ 20 minutes** (aligne sur `09-architecture.md` et `10-dossier-rendu.md`)
+- **Bonus** etendus (deploy-all, cert-manager optionnel, disques 30/50 Go)

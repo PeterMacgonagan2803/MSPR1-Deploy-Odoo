@@ -4,9 +4,9 @@
 # =============================================================================
 # Déploie sur le cluster K3s :
 #   - nfs-subdir-external-provisioner (StorageClass NFS)
-#   - cert-manager (certificats TLS autosignés)
-#   - Odoo via Helm (chart Bitnami) + PostgreSQL
-#   - Ingress Traefik pour accès HTTPS
+#   - cert-manager (optionnel, certificats TLS autosignés)
+#   - PostgreSQL 17 + Odoo 18 (images officielles, manifests K8s)
+#   - Ingress Traefik HTTP (+ HTTPS si cert-manager activé)
 #
 # Usage: ansible-playbook playbooks/deploy-odoo.yml
 # =============================================================================
@@ -26,7 +26,7 @@
           - "=========================================="
           - ""
           - "  Odoo est accessible via :"
-          - "  https://{{ odoo_domain | default('odoo.local') }}"
+          - "  http://{{ odoo_domain | default('odoo.local') }}"
           - ""
           - "  Identifiants par défaut :"
           - "  Email : admin@cogip.local"

@@ -49,10 +49,10 @@ Terraform utilise une boucle `for_each` sur une map `locals` pour deployer les 4
 
 | VM | VMID | CPU | RAM | Disque | Role |
 |----|------|-----|-----|--------|------|
-| `k3s-server` | 200 | 2 coeurs | 4 Go | 20 Go | Control-plane K3s |
-| `k3s-worker-1` | 201 | 2 coeurs | 4 Go | 20 Go | Worker K3s |
-| `k3s-worker-2` | 202 | 2 coeurs | 4 Go | 20 Go | Worker K3s |
-| `nfs-server` | 203 | 1 coeur | 1 Go | 20 Go | Serveur NFS |
+| `k3s-server` | 200 | 2 coeurs | 4 Go | 30 Go | Control-plane K3s |
+| `k3s-worker-1` | 201 | 2 coeurs | 4 Go | 30 Go | Worker K3s |
+| `k3s-worker-2` | 202 | 2 coeurs | 4 Go | 30 Go | Worker K3s |
+| `nfs-server` | 203 | 1 coeur | 1 Go | 50 Go | Serveur NFS |
 
 ### Configuration reseau
 
@@ -125,4 +125,6 @@ Le fichier `terraform.tfstate` contient l'etat de l'infrastructure deployee. Il 
 
 ## 10. Interet pour le PRA
 
-`terraform apply` recree l'ensemble des 4 VMs en **~5 minutes**, avec les IPs identiques et la configuration reseau complete. Combine avec le template cloud-init, aucune intervention manuelle n'est necessaire pour reconstituer l'infrastructure.
+`terraform apply` recree l'ensemble des 4 VMs en **environ 10 a 15 minutes** en pratique (clone complet depuis le template, allocation disque 30/30/30/50 Go, demarrage cloud-init), la duree exacte dependant surtout du **type de stockage Proxmox** (SSD vs disque mecanique) et de la charge du cluster.
+
+Le **PRA complet depuis zero** (infrastructure Terraform + configuration Ansible + deploiement Odoo sur K3s) est estime a **environ 20 minutes** lorsque les prerequis (template, secrets Vault) sont deja en place. Combine avec le template cloud-init, aucune saisie manuelle des adresses IP n'est necessaire entre Terraform et Ansible : l'inventaire est regenere automatiquement.

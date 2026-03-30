@@ -2,14 +2,17 @@
 
 ## 1. Objectif
 
-Deployer l'ERP Odoo sur le cluster K3s avec stockage persistant NFS, certificats TLS autosignes, et acces HTTP/HTTPS via l'Ingress Traefik integre.
+Deployer l'ERP Odoo sur le cluster K3s avec stockage persistant NFS, en s'appuyant sur des **manifests Kubernetes** et les **images officielles** (`postgres:17`, `odoo:18`). L'acces utilisateur est **HTTP par defaut** (`http://odoo.local` via Ingress Traefik). Les certificats TLS via **cert-manager** sont **optionnels** : lorsqu'ils sont actives, l'Ingress expose egalement HTTPS avec des certificats autosignes adaptes au PoC.
 
 ## 2. Chaine de deploiement
 
 ```
-NFS Provisioner  -->  cert-manager  -->  PostgreSQL  -->  Odoo  -->  Ingress HTTP/HTTPS
-(StorageClass)       (Certificats)      (Manifests K8s) (Manifests K8s)  (Traefik)
+NFS Provisioner  -->  [cert-manager] (optionnel)  -->  PostgreSQL  -->  Odoo  -->  Ingress
+(StorageClass)       (TLS / ClusterIssuer)          (Manifests K8s) (Manifests K8s)  HTTP par defaut
+                                                                                      HTTP+HTTPS si cert-manager
 ```
+
+Les etapes **PostgreSQL**, **Odoo** et l'**Ingress** (au minimum en HTTP) sont toujours executees. **cert-manager** n'est installe et configure que si `enable_cert_manager` est vrai dans les variables de groupe.
 
 ## 3. Composant 1 : NFS Subdir External Provisioner
 
@@ -33,12 +36,22 @@ kubernetes.core.helm:
   release_namespace: storage
 ```
 
-## 4. Composant 2 : cert-manager
+## 4. Composant 2 : cert-manager (optionnel)
 
 ### Role
-Gerer automatiquement les certificats TLS pour l'Ingress HTTPS. Un `ClusterIssuer` autosigne est cree pour le PoC.
+Lorsqu'il est active, cert-manager gere automatiquement la creation et le renouvellement des certificats TLS pour l'Ingress HTTPS. Un `ClusterIssuer` autosigne est applique pour le PoC (suffisant en laboratoire ; en production on pourrait basculer vers Let's Encrypt).
 
-### Configuration (Helm)
+### Activation et defaut
+
+- Le deploiement est **conditionne** par l'expression Ansible `enable_cert_manager | default(false)`.
+- **Par defaut, cert-manager est desactive** (`false`), ce qui evite de dependre des images hebergees sur **quay.io** au moment du `helm install` : le registre a connu des coupures pendant le projet, ce qui bloquait entierement le playbook si cert-manager etait obligatoire.
+- Pour **reactiver** cert-manager : definir `enable_cert_manager: true` dans les fichiers de group_vars (par exemple `ansible/group_vars/all/main.yml` ou un fichier dedie), puis relancer le playbook de deploiement Odoo.
+
+### Taches conditionnees (resume)
+
+- Ajout du depot Helm Jetstack, installation du release `cert-manager`, pause de stabilisation, application du template `ClusterIssuer` : tous ces blocs portent `when: enable_cert_manager | default(false)`.
+
+### Configuration (Helm), lorsque active
 ```yaml
 kubernetes.core.helm:
   name: cert-manager
@@ -57,7 +70,7 @@ spec:
   selfSigned: {}
 ```
 
-> En production, il suffit de remplacer `selfSigned` par un issuer `letsencrypt` pour obtenir des certificats valides.
+> En production, il suffit de remplacer `selfSigned` par un issuer `letsencrypt` pour obtenir des certificats valides par les navigateurs.
 
 ## 5. Composant 3 : PostgreSQL (image officielle)
 
@@ -118,9 +131,13 @@ vault_pg_password: "Ch4ng3M3!Pg2026"
 
 La valeur est injectee dans les templates Jinja2 via `{{ vault_pg_password }}`.
 
-## 7. Composant 5 : Ingress HTTP/HTTPS (Traefik)
+## 7. Composant 5 : Ingress (Traefik) -- modes HTTP et HTTP+HTTPS
 
-### Configuration de l'Ingress
+L'objet Ingress est genere a partir du template Jinja2 `odoo-ingress.yml.j2` : les blocs **annotations TLS**, **cert-manager** et la section **`spec.tls`** ne sont presents que si `enable_cert_manager | default(false)` est vrai.
+
+### Mode par defaut : HTTP uniquement
+
+Sans cert-manager, seul l'entrypoint **web** (HTTP) est annote ; pas de section `tls` ni d'annotation `cert-manager.io/cluster-issuer`.
 
 ```yaml
 apiVersion: networking.k8s.io/v1
@@ -129,8 +146,37 @@ metadata:
   name: odoo-ingress
   namespace: odoo
   annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  ingressClassName: traefik
+  rules:
+    - host: odoo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: odoo
+                port:
+                  number: 8069
+```
+
+Le nom d'hote reel est interpole via `{{ odoo_domain | default('odoo.local') }}` dans le template.
+
+### Mode avec cert-manager : HTTP + HTTPS (TLS)
+
+Lorsque `enable_cert_manager` est vrai, le template ajoute l'issuer, l'annotation TLS Traefik et le bloc `tls` (secret cree par cert-manager, par exemple `odoo-tls`).
+
+```yaml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: odoo-ingress
+  namespace: odoo
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
     cert-manager.io/cluster-issuer: selfsigned-issuer
-    traefik.ingress.kubernetes.io/router.entrypoints: web,websecure
     traefik.ingress.kubernetes.io/router.tls: "true"
 spec:
   ingressClassName: traefik
@@ -153,11 +199,9 @@ spec:
 
 ### Fonctionnement
 
-1. L'utilisateur accede a `http://odoo.local` ou `https://odoo.local`
-2. Traefik (Ingress Controller integre K3s) recoit la requete
-3. cert-manager fournit le certificat TLS autosigne (pour HTTPS)
-4. Traefik route la requete vers le service Odoo (port 8069)
-5. Odoo repond avec l'interface web
+1. **Par defaut** : l'utilisateur accede en priorite a **`http://odoo.local`** ; Traefik route vers le service Odoo (port 8069).
+2. **Avec cert-manager** : le meme hote peut egalement etre joignable en **`https://odoo.local`** avec un certificat **autosigne** (avertissement navigateur normal en PoC).
+3. Dans les deux cas, Traefik (Ingress Controller integre a K3s) termine la requete vers le backend Odoo.
 
 ### Acces
 
@@ -166,18 +210,23 @@ Ajouter dans le fichier `hosts` (Windows: `C:\Windows\System32\drivers\etc\hosts
 <IP_PUBLIQUE_PROXMOX>  odoo.local
 ```
 
-Et configurer le port-forwarding NAT sur Proxmox (ports 80 et 443 vers le control-plane).
+Et configurer le port-forwarding NAT sur Proxmox (port **80** toujours ; port **443** utile surtout lorsque cert-manager et le TLS sont actives).
 
 ## 8. Health Check
 
-Apres le deploiement, Ansible effectue un **health check HTTP** automatique :
+Apres le deploiement, Ansible effectue un **health check HTTP** vers l'interface de selection de base (`/web/database/selector`) en utilisant l'IP **ClusterIP** du service Odoo (pas le nom DNS externe), afin de verifier une reponse applicative sans dependre du DNS poste client.
 
-1. Recuperation de l'IP du service Odoo dans le cluster
-2. Requete GET sur `http://<IP>:8069/web/database/selector`
-3. Verification du code retour HTTP 200
-4. Jusqu'a 12 tentatives avec 15 secondes d'intervalle (3 minutes max)
+Parametres implementes dans le role :
 
-Ce health check garantit que le deploiement est fonctionnel avant de terminer le playbook.
+| Parametre | Valeur |
+|-----------|--------|
+| URL | `http://<clusterIP>:8069/web/database/selector` |
+| Codes HTTP acceptes | **200**, **303**, **500** |
+| `retries` | **5** |
+| `delay` | **10** secondes entre tentatives |
+| `ignore_errors` | **true** |
+
+**Justification des codes et du comportement :** pendant ou juste apres le deploiement, Odoo peut repondre par une redirection (**303**) ou exposer une page d'erreur serveur (**500**) tant que la base n'est pas initialisee ; le playbook ne doit pas echouer pour autant. L'initialisation complete de la base peut etre realisee **apres** le deploiement (connexion web). Le module `uri` enregistre le resultat ; un message de debug indique le code recu. Ainsi le health check **informe** sans bloquer la fin du playbook sur un etat transitoire.
 
 ## 9. Commandes
 
@@ -196,9 +245,11 @@ ansible-playbook playbooks/site.yml --ask-vault-pass
   Deploiement MSPR COGIP termine !
 ==========================================
 
-  Odoo est accessible via :
-  http://odoo.local  (HTTP)
-  https://odoo.local (HTTPS, certificat autosigne)
+  Odoo est accessible en priorite via :
+  http://odoo.local
+
+  (Si cert-manager est active : https://odoo.local
+   avec certificat autosigne -- avertissement navigateur normal en PoC.)
 
   Identifiants par defaut :
   Login    : admin
