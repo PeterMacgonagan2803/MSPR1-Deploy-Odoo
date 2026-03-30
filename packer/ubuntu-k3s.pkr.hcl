@@ -19,7 +19,7 @@ source "proxmox-iso" "ubuntu-k3s" {
 
   vm_id                = var.vm_id
   vm_name              = "ubuntu-k3s-template"
-  template_description = "Ubuntu 22.04 LTS - Template K3s pour MSPR COGIP"
+  template_description = "Ubuntu 22.04 LTS - Template K3s pour MSPR COGIP (via Packer)"
 
   os       = "l26"
   cpu_type = "host"
@@ -32,7 +32,7 @@ source "proxmox-iso" "ubuntu-k3s" {
     type         = "scsi"
     disk_size    = "30G"
     storage_pool = var.storage_pool
-    format       = "raw"
+    format       = "qcow2"
   }
 
   network_adapters {
@@ -44,17 +44,16 @@ source "proxmox-iso" "ubuntu-k3s" {
   cloud_init              = true
   cloud_init_storage_pool = var.storage_pool
 
-  http_directory = "http"
+  http_directory    = "http"
+  http_bind_address = var.http_bind_address
 
   boot_command = [
-    "<esc><wait>",
-    "e<wait>",
-    "<down><down><down><end>",
+    "e<down><down><down><end>",
     " autoinstall ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/",
     "<F10>"
   ]
 
-  boot_wait = "10s"
+  boot_wait = "5s"
 
   ssh_username = var.ssh_username
   ssh_password = var.ssh_password
@@ -68,7 +67,7 @@ build {
     inline = [
       "sudo apt-get update",
       "sudo apt-get upgrade -y",
-      "sudo apt-get install -y qemu-guest-agent curl wget gnupg2 software-properties-common apt-transport-https ca-certificates nfs-common open-iscsi",
+      "sudo apt-get install -y qemu-guest-agent curl wget gnupg2 software-properties-common apt-transport-https ca-certificates nfs-common open-iscsi jq unzip",
       "sudo systemctl enable qemu-guest-agent",
       "sudo apt-get autoremove -y",
       "sudo apt-get clean",

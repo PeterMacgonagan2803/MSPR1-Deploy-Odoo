@@ -1,17 +1,19 @@
 variable "proxmox_url" {
   type        = string
-  description = "URL de l'API Proxmox (ex: https://proxmox.local:8006/api2/json)"
+  default     = "https://127.0.0.1:8006/api2/json"
+  description = "URL de l'API Proxmox (localhost quand Packer tourne sur le serveur)"
 }
 
 variable "proxmox_username" {
   type        = string
-  description = "Utilisateur API Proxmox (ex: root@pam ou user@pve!token)"
+  default     = "root@pam"
+  description = "Utilisateur Proxmox"
 }
 
 variable "proxmox_password" {
   type        = string
   sensitive   = true
-  description = "Mot de passe ou token API Proxmox"
+  description = "Mot de passe Proxmox"
 }
 
 variable "proxmox_node" {
@@ -33,25 +35,31 @@ variable "vm_id" {
 
 variable "storage_pool" {
   type        = string
-  default     = "local-lvm"
-  description = "Pool de stockage Proxmox pour les disques"
+  default     = "local"
+  description = "Pool de stockage Proxmox (type dir pour qcow2)"
 }
 
 variable "network_bridge" {
   type        = string
-  default     = "vmbr0"
-  description = "Bridge réseau Proxmox"
+  default     = "vmbr1"
+  description = "Bridge reseau prive NAT"
+}
+
+variable "http_bind_address" {
+  type        = string
+  default     = "10.10.10.1"
+  description = "IP gateway vmbr1 - le serveur HTTP Packer ecoute ici pour que la VM puisse le joindre"
 }
 
 variable "ssh_username" {
   type        = string
   default     = "ubuntu"
-  description = "Utilisateur SSH pour le provisionnement"
+  description = "Utilisateur SSH cree par autoinstall"
 }
 
 variable "ssh_password" {
   type        = string
   default     = "ubuntu"
   sensitive   = true
-  description = "Mot de passe SSH temporaire (sera remplacé par clé SSH)"
+  description = "Mot de passe SSH temporaire (remplace par cle SSH via cloud-init au clonage)"
 }

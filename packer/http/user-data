@@ -1,13 +1,13 @@
 #cloud-config
 autoinstall:
   version: 1
-  locale: fr_FR.UTF-8
+  locale: en_US.UTF-8
   keyboard:
     layout: fr
   identity:
     hostname: ubuntu-k3s
     username: ubuntu
-    password: "$6$rounds=4096$randomsalt$HashedPasswordHere"
+    password: __UBUNTU_HASH__
   ssh:
     install-server: true
     allow-pw: true
@@ -20,6 +20,7 @@ autoinstall:
     - wget
     - sudo
   late-commands:
-    - echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu
-    - chmod 440 /target/etc/sudoers.d/ubuntu
-    - systemctl enable qemu-guest-agent --root=/target
+    - "echo 'ubuntu:ubuntu' | chroot /target chpasswd"
+    - "echo 'ubuntu ALL=(ALL) NOPASSWD:ALL' > /target/etc/sudoers.d/ubuntu"
+    - "chmod 440 /target/etc/sudoers.d/ubuntu"
+    - "chroot /target systemctl enable qemu-guest-agent"
