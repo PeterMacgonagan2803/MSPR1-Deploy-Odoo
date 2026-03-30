@@ -12,5 +12,5 @@ resource "local_file" "ansible_inventory" {
   })
   filename = "${path.module}/../ansible/inventory/hosts.yml"
 
-  depends_on = [proxmox_vm_qemu.k3s_cluster]
+  depends_on = [proxmox_virtual_environment_vm.k3s_cluster]
 }

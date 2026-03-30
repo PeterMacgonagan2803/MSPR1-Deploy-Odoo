@@ -3,15 +3,16 @@ variable "proxmox_url" {
   description = "URL de l'API Proxmox (ex: https://proxmox.local:8006/api2/json)"
 }
 
-variable "proxmox_token_id" {
+variable "proxmox_user" {
   type        = string
-  description = "Token ID Proxmox (ex: user@pam!terraform)"
+  default     = "root@pam"
+  description = "Utilisateur Proxmox (ex: root@pam)"
 }
 
-variable "proxmox_token_secret" {
+variable "proxmox_password" {
   type        = string
   sensitive   = true
-  description = "Token secret Proxmox"
+  description = "Mot de passe Proxmox"
 }
 
 variable "proxmox_node" {

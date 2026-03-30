@@ -4,7 +4,7 @@ locals {
       vmid   = 200
       cores  = 2
       memory = 4096
-      disk   = "20G"
+      disk   = 20
       ip     = var.ip_control_plane
       desc   = "K3s Control Plane - MSPR COGIP"
     }
@@ -12,7 +12,7 @@ locals {
       vmid   = 201
       cores  = 2
       memory = 4096
-      disk   = "20G"
+      disk   = 20
       ip     = var.ip_worker_1
       desc   = "K3s Worker 1 - MSPR COGIP"
     }
@@ -20,7 +20,7 @@ locals {
       vmid   = 202
       cores  = 2
       memory = 4096
-      disk   = "20G"
+      disk   = 20
       ip     = var.ip_worker_2
       desc   = "K3s Worker 2 - MSPR COGIP"
     }
@@ -28,60 +28,75 @@ locals {
       vmid   = 203
       cores  = 1
       memory = 1024
-      disk   = "20G"
+      disk   = 20
       ip     = var.ip_nfs
       desc   = "Serveur NFS - Stockage persistant K8s"
     }
   }
 }
 
-resource "proxmox_vm_qemu" "k3s_cluster" {
+resource "proxmox_virtual_environment_vm" "k3s_cluster" {
   for_each = local.vms
 
   name        = each.key
-  vmid        = each.value.vmid
-  target_node = var.proxmox_node
-  clone       = var.template_name
-  full_clone  = true
-  agent       = 1
-  desc        = each.value.desc
+  vm_id       = each.value.vmid
+  node_name   = var.proxmox_node
+  description = each.value.desc
+  on_boot     = true
+  started     = true
 
-  cores   = each.value.cores
-  sockets = 1
-  cpu     = "host"
-  memory  = each.value.memory
+  clone {
+    vm_id = 9000
+    full  = true
+  }
 
-  os_type    = "cloud-init"
-  scsihw     = "virtio-scsi-single"
-  bootdisk   = "scsi0"
-  onboot     = true
-  automatic_reboot = true
+  cpu {
+    cores   = each.value.cores
+    sockets = 1
+    type    = "host"
+  }
 
-  disks {
-    scsi {
-      scsi0 {
-        disk {
-          size    = each.value.disk
-          storage = var.storage_pool
-          format  = "raw"
-        }
+  memory {
+    dedicated = each.value.memory
+  }
+
+  agent {
+    enabled = true
+  }
+
+  disk {
+    interface    = "scsi0"
+    size         = each.value.disk
+    datastore_id = var.storage_pool
+    file_format  = "qcow2"
+  }
+
+  network_device {
+    bridge = var.network_bridge
+    model  = "virtio"
+  }
+
+  initialization {
+    datastore_id = var.storage_pool
+
+    ip_config {
+      ipv4 {
+        address = each.value.ip
+        gateway = var.gateway
       }
+    }
+    dns {
+      servers = [var.nameserver]
+    }
+    user_account {
+      username = var.ssh_user
+      keys     = [var.ssh_public_key]
     }
   }
 
-  network {
-    model  = "virtio"
-    bridge = var.network_bridge
-  }
-
-  ipconfig0  = "ip=${each.value.ip},gw=${var.gateway}"
-  nameserver = var.nameserver
-  ciuser     = var.ssh_user
-  sshkeys    = var.ssh_public_key
-
   lifecycle {
     ignore_changes = [
-      network,
+      network_device,
     ]
   }
 }

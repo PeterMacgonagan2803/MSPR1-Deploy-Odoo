@@ -19,13 +19,11 @@ output "nfs_server_ip" {
 }
 
 output "vm_info" {
-  description = "Informations sur les VMs déployées"
+  description = "Informations sur les VMs deployees"
   value = {
-    for name, vm in proxmox_vm_qemu.k3s_cluster : name => {
-      id     = vm.vmid
-      name   = vm.name
-      cores  = vm.cores
-      memory = vm.memory
+    for name, vm in proxmox_virtual_environment_vm.k3s_cluster : name => {
+      id   = vm.vm_id
+      name = vm.name
     }
   }
 }
