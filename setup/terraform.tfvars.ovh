@@ -8,7 +8,7 @@
 # =============================================================================
 
 # --- Proxmox ---
-proxmox_url          = "https://<IP_PUBLIQUE_OVH>:8006/api2/json"
+proxmox_url          = "https://51.77.216.79:8006/api2/json"
 proxmox_token_id     = "root@pam!terraform"
 proxmox_token_secret = "<TOKEN_SECRET_A_REMPLIR>"
 proxmox_node         = "<NOM_NOEUD_PROXMOX>"
@@ -20,7 +20,7 @@ network_bridge = "vmbr1"
 
 # --- SSH ---
 ssh_user       = "ubuntu"
-ssh_public_key = "<COLLER_ICI_LE_CONTENU_DE_id_mspr.pub>"
+ssh_public_key = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIHcjlUzYzCiRGTe+TWekFc/RmLX13pcXijChNYZOiBBw mspr-cogip"
 
 # --- Réseau (bridge interne vmbr1) ---
 gateway    = "10.10.10.1"

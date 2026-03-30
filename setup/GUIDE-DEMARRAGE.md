@@ -65,9 +65,6 @@ L'API Token permet à Terraform de communiquer avec Proxmox **sans utiliser le m
 4. Note :
    - **Token ID** : `root@pam!terraform`
    - **Token Secret** : `xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx`
-
-   root@pam!terraform
-   737745b6-acf2-4e5f-9df7-b52aabc4815b
    
 
 ---
