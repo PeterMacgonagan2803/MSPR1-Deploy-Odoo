@@ -2,133 +2,140 @@
 
 ## 1. Vue d'ensemble
 
-La solution proposée à la COGIP repose sur une architecture bare-metal virtualisée via Proxmox, hébergeant un cluster Kubernetes K3s de 3 noeuds, avec un serveur NFS dédié au stockage persistant.
+La solution proposee a la COGIP repose sur une architecture bare-metal virtualisee via Proxmox VE (serveur dedie OVH), hebergeant un cluster Kubernetes K3s de 3 noeuds, avec un serveur NFS dedie au stockage persistant. Le reseau interne utilise un bridge NAT (`vmbr1`) avec port-forwarding vers l'exterieur.
 
-## 2. Schéma d'architecture réseau
-
-```
-                    ┌─────────────────────┐
-                    │   Utilisateur        │
-                    │   https://odoo.local │
-                    └──────────┬──────────┘
-                               │
-                               │ HTTPS (port 443)
-                               ▼
-┌──────────────────────────────────────────────────────────────┐
-│                      Proxmox VE (Hyperviseur)                │
-│                                                              │
-│  ┌────────────────────────────────────────────────────────┐  │
-│  │              Réseau virtuel (vmbr0)                    │  │
-│  │              ex: 10.0.0.0/24                           │  │
-│  └──┬──────────────┬──────────────┬──────────────┬───────┘  │
-│     │              │              │              │           │
-│     ▼              ▼              ▼              ▼           │
-│  ┌──────┐     ┌──────┐     ┌──────┐     ┌──────────┐       │
-│  │ CP   │     │ W1   │     │ W2   │     │ NFS      │       │
-│  │.0.10 │     │.0.11 │     │.0.12 │     │.0.13     │       │
-│  │2C/4G │     │2C/4G │     │2C/4G │     │1C/1G     │       │
-│  │20 Go │     │30 Go │     │30 Go │     │50 Go     │       │
-│  └──┬───┘     └──┬───┘     └──┬───┘     └────┬─────┘       │
-│     │            │            │               │             │
-│     └──────┬─────┴────────────┘               │             │
-│            │  K3s Cluster                     │             │
-│            │                                  │             │
-│            │  ┌─────────────────────────┐     │             │
-│            │  │ kube-system             │     │             │
-│            │  │  ├─ CoreDNS             │     │             │
-│            │  │  ├─ Traefik (Ingress)◄──┼─ HTTPS           │
-│            │  │  ├─ ServiceLB           │     │             │
-│            │  │  └─ Metrics Server      │     │             │
-│            │  ├─────────────────────────┤     │             │
-│            │  │ storage                 │     │             │
-│            │  │  └─ NFS Provisioner ────┼─────┘ NFS mount   │
-│            │  ├─────────────────────────┤                   │
-│            │  │ cert-manager            │                   │
-│            │  │  └─ ClusterIssuer       │                   │
-│            │  │     (selfsigned)        │                   │
-│            │  ├─────────────────────────┤                   │
-│            │  │ odoo                    │                   │
-│            │  │  ├─ Odoo (pod)          │                   │
-│            │  │  ├─ PostgreSQL (pod)    │                   │
-│            │  │  └─ PVC ──► NFS PV     │                   │
-│            │  └─────────────────────────┘                   │
-│            │                                                │
-└────────────┴────────────────────────────────────────────────┘
-```
-
-## 3. Flux réseau détaillé
-
-### Accès utilisateur à Odoo
+## 2. Schema d'architecture reseau
 
 ```
-Utilisateur ──► DNS (odoo.local → 10.0.0.10)
-            ──► Traefik (port 443, TLS termination)
-            ──► Service ClusterIP odoo (port 8069)
-            ──► Pod Odoo
-            ──► Pod PostgreSQL (connexion interne)
-            ──► PVC → NFS PV → VM NFS (/srv/nfs/k8s)
+                    +---------------------+
+                    |   Utilisateur        |
+                    |   http://odoo.local  |
+                    +----------+----------+
+                               |
+                               | HTTP/HTTPS (ports 80/443)
+                               v
++--------------------------------------------------------------+
+|              Serveur Dedie OVH (Proxmox VE)                  |
+|              IP publique : x.x.x.x                           |
+|                                                              |
+|  iptables NAT (PREROUTING)                                   |
+|  :80  --> 10.10.10.10:80  (Traefik HTTP)                     |
+|  :443 --> 10.10.10.10:443 (Traefik HTTPS)                    |
+|                                                              |
+|  +--------------------------------------------------------+  |
+|  |           Reseau prive vmbr1 (10.10.10.0/24)           |  |
+|  +--+-------------+-------------+-------------+-----------+  |
+|     |             |             |             |               |
+|     v             v             v             v               |
+|  +------+    +------+    +------+    +----------+             |
+|  | CP   |    | W1   |    | W2   |    | NFS      |             |
+|  |.10.10|    |.10.11|    |.10.12|    |.10.13    |             |
+|  |2C/4G |    |2C/4G |    |2C/4G |    |1C/1G    |             |
+|  |20 Go |    |20 Go |    |20 Go |    |20 Go    |             |
+|  +--+---+    +--+---+    +--+---+    +----+-----+             |
+|     |          |          |               |                   |
+|     +-----+----+----------+               |                   |
+|           | K3s Cluster                   |                   |
+|           |                               |                   |
+|           |  +-------------------------+  |                   |
+|           |  | kube-system             |  |                   |
+|           |  |  +- CoreDNS             |  |                   |
+|           |  |  +- Traefik (Ingress) <-+- HTTP/HTTPS          |
+|           |  |  +- ServiceLB           |  |                   |
+|           |  |  +- Metrics Server      |  |                   |
+|           |  +-------------------------+  |                   |
+|           |  | storage                 |  |                   |
+|           |  |  +- NFS Provisioner ----+--->  NFS mount       |
+|           |  +-------------------------+                      |
+|           |  | cert-manager            |                      |
+|           |  |  +- ClusterIssuer       |                      |
+|           |  |    (selfsigned)         |                      |
+|           |  +-------------------------+                      |
+|           |  | odoo                    |                      |
+|           |  |  +- PostgreSQL (pod)    |                      |
+|           |  |  +- Odoo (pod)          |                      |
+|           |  |  +- PVC --> NFS PV      |                      |
+|           |  +-------------------------+                      |
+|           |                                                   |
++--------------------------------------------------------------+
+```
+
+## 3. Flux reseau detaille
+
+### Acces utilisateur a Odoo
+
+```
+Utilisateur --> DNS local (odoo.local -> IP publique OVH)
+            --> iptables NAT sur Proxmox (port 80/443)
+            --> Traefik sur K3s (Ingress Controller)
+            --> Service ClusterIP odoo (port 8069)
+            --> Pod Odoo
+            --> Pod PostgreSQL (connexion interne port 5432)
+            --> PVC -> NFS PV -> VM NFS (/srv/nfs/k8s)
 ```
 
 ### Communication inter-noeuds
 
 | Source | Destination | Port | Protocole |
 |--------|-------------|------|-----------|
-| Workers → Control-plane | API Server | 6443 | HTTPS |
-| Control-plane → Workers | Kubelet | 10250 | HTTPS |
+| Exterieur -> Proxmox | iptables NAT | 80, 443 | TCP |
+| Proxmox NAT -> Control-plane | Traefik | 80, 443 | TCP |
+| Workers -> Control-plane | API Server | 6443 | HTTPS |
+| Control-plane -> Workers | Kubelet | 10250 | HTTPS |
 | Tous les noeuds | CoreDNS | 53 | UDP/TCP |
 | Tous les noeuds | NFS Server | 2049 | TCP |
-| Extérieur → Control-plane | Traefik | 443 | HTTPS |
 
-## 4. Composants Kubernetes déployés
+## 4. Composants Kubernetes deployes
 
-| Namespace | Composant | Type | Rôle |
+| Namespace | Composant | Type | Role |
 |-----------|-----------|------|------|
-| `kube-system` | CoreDNS | Deployment | Résolution DNS intra-cluster |
+| `kube-system` | CoreDNS | Deployment | Resolution DNS intra-cluster |
 | `kube-system` | Traefik | Deployment | Ingress Controller + TLS |
 | `kube-system` | ServiceLB | DaemonSet | LoadBalancer L4 |
-| `kube-system` | Metrics Server | Deployment | Métriques CPU/RAM |
+| `kube-system` | Metrics Server | Deployment | Metriques CPU/RAM |
 | `storage` | NFS Provisioner | Deployment | StorageClass dynamique |
 | `cert-manager` | cert-manager | Deployment | Gestion certificats TLS |
-| `cert-manager` | ClusterIssuer | CR | Émetteur autosigné |
-| `odoo` | Odoo | Deployment | Application ERP |
-| `odoo` | PostgreSQL | StatefulSet | Base de données |
-| `odoo` | Ingress | Ingress | Route HTTPS → Odoo |
+| `cert-manager` | ClusterIssuer | CR | Emetteur autosigne |
+| `odoo` | PostgreSQL | Deployment | Base de donnees (postgres:17) |
+| `odoo` | Odoo | Deployment | Application ERP (odoo:18) |
+| `odoo` | Ingress | Ingress | Route HTTP/HTTPS -> Odoo |
 
 ## 5. Stockage
 
 ```
-Pod Odoo ──► PVC (5Gi) ──► PV ──► NFS Server (/srv/nfs/k8s/odoo-data-...)
-Pod PG   ──► PVC (5Gi) ──► PV ──► NFS Server (/srv/nfs/k8s/pg-data-...)
+Pod Odoo --> PVC (5Gi) --> PV --> NFS Server (/srv/nfs/k8s/odoo-data-...)
+Pod PG   --> PVC (5Gi) --> PV --> NFS Server (/srv/nfs/k8s/pg-data-...)
 ```
 
-Le `StorageClass` `nfs-client` (déployé via nfs-subdir-external-provisioner) crée automatiquement un sous-répertoire sur le serveur NFS pour chaque PVC demandé.
+Le `StorageClass` `nfs-client` (deploye via nfs-subdir-external-provisioner) cree automatiquement un sous-repertoire sur le serveur NFS pour chaque PVC demande.
 
-**Politique de rétention** : `Retain` — les données sont conservées même si le PVC est supprimé, garantissant la protection des données de la COGIP.
+**Politique de retention** : `Retain` -- les donnees sont conservees meme si le PVC est supprime, garantissant la protection des donnees de la COGIP.
 
-## 6. Haute disponibilité et résilience
+## 6. Haute disponibilite et resilience
 
-| Composant | Résilience |
+| Composant | Resilience |
 |-----------|------------|
-| **Pods Odoo** | Kubernetes redémarre automatiquement les pods en cas de crash |
-| **Workers** | Si un worker tombe, les pods sont replanifiés sur l'autre worker |
-| **Stockage** | NFS externalisé, indépendant des workers |
+| **Pods Odoo** | Kubernetes redemarre automatiquement les pods en cas de crash |
+| **Workers** | Si un worker tombe, les pods sont replanifies sur l'autre worker |
+| **Stockage** | NFS externalise, independant des workers |
 | **Control-plane** | Point unique (1 seul), acceptable pour un PoC |
-| **PRA** | Infrastructure entièrement reproductible via IaC en ~30 min |
+| **PRA** | Infrastructure entierement reproductible via IaC en ~50 min |
 
-> En production, il faudrait 3 control-planes et une solution de stockage répliquée (Longhorn, etc.).
+> En production, il faudrait 3 control-planes et une solution de stockage repliquee (Longhorn, etc.).
 
-## 7. Chaîne d'automatisation complète
+## 7. Chaine d'automatisation complete
 
 ```
- Étape 1         Étape 2              Étape 3              Étape 4
-┌────────┐    ┌───────────┐    ┌──────────────┐    ┌──────────────────┐
-│ Packer │───►│ Terraform │───►│ Ansible K3s  │───►│ Ansible Odoo     │
-│ ~15min │    │ ~5min     │    │ ~5min        │    │ ~10min           │
-│        │    │           │    │              │    │                  │
-│Template│    │4 VMs      │    │Cluster 3     │    │NFS Prov          │
-│VM      │    │+Inventaire│    │noeuds        │    │cert-manager      │
-│        │    │Ansible    │    │              │    │Odoo + PG + Ingress│
-└────────┘    └───────────┘    └──────────────┘    └──────────────────┘
+ Etape 1            Etape 2              Etape 3              Etape 4
++----------+    +-------------+    +--------------+    +--------------------+
+| Template |    | Terraform   |    | Ansible K3s  |    | Ansible Odoo       |
+| ~3min    |--->| ~5min       |--->| ~10min       |--->| ~30min             |
+|          |    |             |    |              |    |                    |
+|Cloud-init|    |4 VMs        |    |Cluster 3     |    |NFS Prov            |
+|Template  |    |+Inventaire  |    |noeuds        |    |cert-manager        |
+|VM (9000) |    |Ansible      |    |              |    |PostgreSQL + Odoo   |
++----------+    +-------------+    +--------------+    |Ingress HTTP/HTTPS  |
+                                                       +--------------------+
 
-Temps total estimé de reconstruction : ~30 minutes
+Temps total de reconstruction : ~50 minutes
 ```

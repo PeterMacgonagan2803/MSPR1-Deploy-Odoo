@@ -5,10 +5,12 @@ terraform/*.tfstate.backup
 terraform/*.tfplan
 terraform/.terraform.lock.hcl
 terraform/terraform.tfvars
+terraform/crash.log
 
 # Packer
 packer/*.log
 packer/output-*/
+packer/packer_cache/
 
 # Ansible
 ansible/*.retry
@@ -18,12 +20,17 @@ ansible/**/*.retry
 *.pem
 *.key
 id_rsa*
+id_ansible*
 *.env
 .env
 secrets/
 credentials.json
 .vault_pass
 ansible/inventory/hosts.yml
+
+# Setup (fichiers avec credentials locaux)
+setup/*.tfvars*
+!setup/*.example
 
 # OS
 .DS_Store

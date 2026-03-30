@@ -2,106 +2,108 @@
 
 [![CI - Validation IaC](https://github.com/PeterMacgonagan2803/MSPR1-Deploy-Odoo/actions/workflows/ci.yml/badge.svg)](https://github.com/PeterMacgonagan2803/MSPR1-Deploy-Odoo/actions/workflows/ci.yml)
 
-Projet MSPR TPRE961 - Infrastructure virtualisée pour le déploiement de l'ERP Odoo sur un cluster Kubernetes (K3s), automatisé via Packer, Terraform et Ansible.
+Projet MSPR TPRE961 - Infrastructure virtualisee pour le deploiement de l'ERP Odoo sur un cluster Kubernetes (K3s), automatise via Terraform et Ansible, sur Proxmox VE.
 
 ## Architecture
 
 ```
-┌─────────────────────────────────────────────────────────┐
-│                    Proxmox VE                           │
-│                                                         │
-│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
-│  │ k3s-server   │  │ k3s-worker-1 │  │ k3s-worker-2 │  │
-│  │ (ctrl-plane) │  │              │  │              │  │
-│  │ 2 CPU / 4 Go │  │ 2 CPU / 4 Go │  │ 2 CPU / 4 Go │  │
-│  │ 20 Go disk   │  │ 30 Go disk   │  │ 30 Go disk   │  │
-│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
-│         │                 │                 │           │
-│         └────────┬────────┴────────┬────────┘           │
-│                  │   K3s Cluster   │                    │
-│                  │  ┌───────────┐  │                    │
-│                  │  │  Traefik  │  │                    │
-│                  │  │ (Ingress) │  │                    │
-│                  │  └─────┬─────┘  │                    │
-│                  │        │        │                    │
-│                  │  ┌─────┴─────┐  │                    │
-│                  │  │   Odoo    │  │                    │
-│                  │  │ (Helm)    │  │                    │
-│                  │  └───────────┘  │                    │
-│                  │                 │                    │
-│  ┌──────────────┐                                      │
-│  │  nfs-server  │◄── Stockage persistant (PV/PVC)      │
-│  │ 1 CPU / 1 Go │                                      │
-│  │ 50 Go disk   │                                      │
-│  └──────────────┘                                      │
-└─────────────────────────────────────────────────────────┘
++-------------------------------------------------------------+
+|                    Proxmox VE (OVH Dedie)                    |
+|                    IP publique : x.x.x.x                     |
+|                                                              |
+|  NAT iptables :80/:443 --> 10.10.10.10                       |
+|                                                              |
+|  +--------------+  +--------------+  +--------------+        |
+|  | k3s-server   |  | k3s-worker-1 |  | k3s-worker-2 |        |
+|  | (ctrl-plane) |  |              |  |              |        |
+|  | 2 CPU / 4 Go |  | 2 CPU / 4 Go |  | 2 CPU / 4 Go |        |
+|  | 10.10.10.10  |  | 10.10.10.11  |  | 10.10.10.12  |        |
+|  +------+-------+  +------+-------+  +------+-------+        |
+|         |                 |                 |                 |
+|         +--------+--------+---------+-------+                 |
+|                  |   K3s Cluster     |                        |
+|                  |  +------------+   |                        |
+|                  |  |  Traefik   |   |                        |
+|                  |  | (Ingress)  |   |                        |
+|                  |  +-----+------+   |                        |
+|                  |        |          |                        |
+|                  |  +-----+------+   |                        |
+|                  |  | Odoo :18   |   |                        |
+|                  |  | PG   :17   |   |                        |
+|                  |  +------------+   |                        |
+|                  |                   |                        |
+|  +--------------+                                            |
+|  |  nfs-server  |<-- Stockage persistant (PV/PVC)            |
+|  | 1 CPU / 1 Go |                                            |
+|  | 10.10.10.13  |                                            |
+|  +--------------+                                            |
++--------------------------------------------------------------+
 ```
 
-## Prérequis
+## Prerequis
 
-- [Packer](https://developer.hashicorp.com/packer/downloads) >= 1.9
 - [Terraform](https://developer.hashicorp.com/terraform/downloads) >= 1.5
 - [Ansible](https://docs.ansible.com/ansible/latest/installation_guide/) >= 2.15
 - [Helm](https://helm.sh/docs/intro/install/) >= 3.12
-- Accès à un serveur Proxmox VE avec les credentials API
-- Une image ISO Ubuntu Server 22.04 LTS sur le Proxmox
+- Acces a un serveur Proxmox VE avec credentials API
+- Python 3 + Paramiko (pour les scripts de setup distants)
 
-## Technologies choisies
+## Technologies
 
-| Outil | Rôle |
+| Outil | Role |
 |-------|------|
 | **Proxmox VE** | Hyperviseur bare-metal |
-| **Packer** | Création de templates VM Ubuntu |
-| **Terraform** | Provisionnement des VMs (IaC) + génération auto de l'inventaire Ansible |
-| **Ansible** | Configuration du cluster K3s + déploiement Odoo |
-| **K3s** | Distribution Kubernetes légère (inclut Traefik + ServiceLB) |
-| **Helm** | Gestionnaire de packages Kubernetes |
+| **Cloud-init** | Template VM Ubuntu 22.04 standardise |
+| **Terraform** (`bpg/proxmox`) | Provisionnement des VMs (IaC) + inventaire Ansible auto |
+| **Ansible** | Configuration du cluster K3s + deploiement Odoo |
+| **K3s** | Distribution Kubernetes legere (Traefik + ServiceLB integres) |
+| **Helm** | NFS Provisioner + cert-manager |
+| **Manifests K8s** | Odoo 18 + PostgreSQL 17 (images officielles) |
 | **NFS** | Stockage persistant pour les PV Kubernetes |
-| **cert-manager** | Gestion des certificats TLS (autosignés) |
-| **GitHub Actions** | CI - Validation automatique (terraform validate, packer validate, ansible-lint) |
+| **cert-manager** | Certificats TLS (autosignes pour le PoC) |
+| **GitHub Actions** | CI - Validation automatique IaC |
 
-## Utilisation rapide
+## Deploiement rapide
 
-### 1. Préparer l'image avec Packer
+### 1. Creer le template VM sur Proxmox
 
 ```bash
-cd packer
-packer init .
-packer build -var-file=variables.pkr.hcl .
+# Sur le serveur Proxmox (SSH root)
+bash setup/create-template.sh
 ```
 
-### 2. Déployer l'infrastructure avec Terraform
+### 2. Deployer l'infrastructure avec Terraform
 
 ```bash
 cd terraform
 cp terraform.tfvars.example terraform.tfvars
-# Éditer terraform.tfvars avec vos paramètres Proxmox
+# Editer terraform.tfvars avec vos parametres Proxmox
 terraform init
 terraform plan
 terraform apply
-# L'inventaire Ansible est généré automatiquement dans ansible/inventory/hosts.yml
 ```
 
-### 3. Configurer le cluster et déployer Odoo avec Ansible
+### 3. Configurer le cluster et deployer Odoo avec Ansible
 
 ```bash
 cd ansible
 ansible-galaxy collection install -r requirements.yml
 
-# Chiffrer les secrets (première fois uniquement)
+# Chiffrer les secrets (premiere fois uniquement)
 ansible-vault encrypt group_vars/all/vault.yml
 
-# Lancer le déploiement complet
+# Lancer le deploiement complet
 ansible-playbook playbooks/site.yml --ask-vault-pass
 ```
 
-### 4. Accéder à Odoo
+### 4. Acceder a Odoo
 
-Une fois le déploiement terminé, Odoo est accessible via :
+Ajouter dans le fichier `hosts` :
 ```
-https://odoo.local
+<IP_PUBLIQUE_PROXMOX>  odoo.local
 ```
-(Ajouter l'entrée dans `/etc/hosts` pointant vers l'IP du control-plane ou du LoadBalancer)
+
+Puis ouvrir http://odoo.local (login: `admin` / password: `admin`).
 
 ### 5. Destruction (nettoyage)
 
@@ -112,61 +114,82 @@ cd ../terraform
 terraform destroy
 ```
 
+> Pour un guide detaille pas-a-pas avec un serveur OVH, voir [`setup/GUIDE-DEMARRAGE.md`](setup/GUIDE-DEMARRAGE.md).
+
 ## Gestion des secrets
 
-Les mots de passe sont stockés dans `ansible/group_vars/all/vault.yml` et chiffrés via **Ansible Vault**.
+Les mots de passe sont stockes dans `ansible/group_vars/all/vault.yml`, a chiffrer via **Ansible Vault** :
 
 ```bash
-# Chiffrer
 ansible-vault encrypt ansible/group_vars/all/vault.yml
-
-# Éditer
 ansible-vault edit ansible/group_vars/all/vault.yml
-
-# Lancer avec le vault
 ansible-playbook playbooks/site.yml --ask-vault-pass
-# ou avec un fichier mot de passe
-ansible-playbook playbooks/site.yml --vault-password-file .vault_pass
 ```
 
 ## Structure du projet
 
 ```
 .
-├── .github/workflows/ci.yml   # CI GitHub Actions
-├── packer/                     # Images VM (Packer)
-│   ├── ubuntu-k3s.pkr.hcl     # Template Packer principal
-│   ├── variables.pkr.hcl      # Variables Packer
-│   └── http/                   # Cloud-init autoinstall
-├── terraform/                  # Infrastructure (Terraform)
-│   ├── main.tf                 # Ressources principales (VMs)
-│   ├── inventory.tf            # Génération auto inventaire Ansible
-│   ├── variables.tf            # Définition des variables
-│   ├── outputs.tf              # Sorties (IPs, etc.)
-│   ├── providers.tf            # Configuration du provider Proxmox
-│   └── templates/              # Templates pour l'inventaire
-├── ansible/                    # Configuration & Déploiement (Ansible)
-│   ├── ansible.cfg             # Configuration Ansible
-│   ├── requirements.yml        # Collections Galaxy requises
-│   ├── group_vars/all/         # Variables centralisées
-│   │   ├── vars.yml            # Variables publiques
-│   │   └── vault.yml           # Secrets (Ansible Vault)
-│   ├── inventory/              # Inventaire (auto-généré par Terraform)
-│   ├── playbooks/              # Playbooks principaux
-│   │   ├── site.yml            # Déploiement complet
-│   │   ├── k3s-cluster.yml     # Cluster K3s uniquement
-│   │   ├── deploy-odoo.yml     # Odoo uniquement
-│   │   └── destroy.yml         # Nettoyage complet
-│   └── roles/
-│       ├── common/             # Configuration de base des VMs
-│       ├── k3s-server/         # Installation K3s control-plane
-│       ├── k3s-agent/          # Installation K3s workers
-│       ├── nfs-server/         # Configuration serveur NFS
-│       └── deploy-odoo/        # Déploiement Odoo + dépendances
-└── README.md
++-- .github/workflows/ci.yml    # CI GitHub Actions
++-- setup/                       # Scripts de deploiement OVH/Proxmox
+|   +-- GUIDE-DEMARRAGE.md      # Guide pas-a-pas complet
+|   +-- create-template.sh      # Creation du template VM cloud-init
+|   +-- configure-network.sh    # Configuration reseau NAT Proxmox
+|   +-- install-tools.ps1       # Installation des outils (Windows)
+|   +-- setup-ansible.py        # Orchestration Ansible distante
+|   +-- port-forward-odoo.sh    # Port-forwarding iptables
+|   +-- init-odoo.py            # Initialisation base Odoo
+|   +-- remote-exec.py          # Execution SSH distante (Paramiko)
+|   +-- remote-bg.py            # Execution background (screen)
++-- terraform/                   # Infrastructure (Terraform)
+|   +-- providers.tf             # Provider bpg/proxmox
+|   +-- main.tf                  # Ressources VMs (for_each)
+|   +-- variables.tf             # Variables
+|   +-- outputs.tf               # Sorties (IPs)
+|   +-- inventory.tf             # Generation auto inventaire Ansible
+|   +-- terraform.tfvars.example # Exemple de configuration
+|   +-- templates/hosts.yml.tftpl
++-- ansible/                     # Configuration & Deploiement
+|   +-- ansible.cfg              # Configuration Ansible
+|   +-- requirements.yml         # Collections Galaxy
+|   +-- group_vars/all/
+|   |   +-- vars.yml             # Variables publiques
+|   |   +-- vault.yml            # Secrets (Ansible Vault)
+|   |   +-- vault.yml.example    # Exemple de vault
+|   +-- inventory/               # Inventaire (auto-genere par Terraform)
+|   +-- playbooks/
+|   |   +-- site.yml             # Deploiement complet
+|   |   +-- k3s-cluster.yml      # Cluster K3s uniquement
+|   |   +-- deploy-odoo.yml      # Odoo uniquement
+|   |   +-- destroy.yml          # Nettoyage complet
+|   +-- roles/
+|       +-- common/              # Configuration de base des VMs
+|       +-- k3s-server/          # Installation K3s control-plane
+|       +-- k3s-agent/           # Installation K3s workers
+|       +-- nfs-server/          # Configuration serveur NFS
+|       +-- deploy-odoo/         # Deploiement Odoo + PostgreSQL + cert-manager
++-- packer/                      # Approche alternative (reference)
++-- livrables/                   # Documentation detaillee par mission
++-- AUDIT-CONFORMITE.md          # Verification conformite cahier des charges
++-- README.md
 ```
 
-## Équipe
+## Livrables
+
+| # | Document | Description |
+|---|----------|-------------|
+| 1 | [Choix technologies](livrables/01-choix-technologies.md) | Justification K3s, Proxmox, IaC |
+| 2 | [Gantt](livrables/02-gantt.md) | Planning previsionnel (19h) |
+| 3 | [Kanban](livrables/03-kanban.md) | Suivi agile (19 tickets) |
+| 4 | [Inclusivite](livrables/04-inclusivite.md) | Mesures handicap, diversite |
+| 5 | [Template VM](livrables/05-packer.md) | Preparation des images |
+| 6 | [Terraform](livrables/06-terraform.md) | Infrastructure as Code |
+| 7 | [Ansible K3s](livrables/07-ansible-k3s.md) | Deploiement cluster |
+| 8 | [Ansible Odoo](livrables/08-ansible-odoo.md) | Deploiement applicatif |
+| 9 | [Architecture](livrables/09-architecture.md) | Schema global |
+| 10 | [Dossier rendu](livrables/10-dossier-rendu.md) | Document final complet |
+
+## Equipe
 
 - PeterMacgonagan2803
 - AugustinBeeuwsaert

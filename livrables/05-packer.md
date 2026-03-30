@@ -1,106 +1,105 @@
-# Mission 4 : Packer — Préparation des images VM
+# Mission 4 : Preparation des images VM (Template Cloud-init)
 
 ## 1. Objectif
 
-Créer un **template de VM Ubuntu 22.04 LTS** standardisé sur Proxmox, pré-configuré avec tous les paquets nécessaires au fonctionnement de K3s et du stockage NFS. Ce template sert de base à toutes les VMs du cluster.
+Creer un **template de VM Ubuntu 22.04 LTS** standardise sur Proxmox, pre-configure avec cloud-init. Ce template (ID 9000) sert de base a toutes les VMs du cluster, clonees ensuite par Terraform.
 
-## 2. Pourquoi utiliser Packer ?
+## 2. Pourquoi un template standardise ?
 
-Sans Packer, chaque VM devrait être installée manuellement et configurée individuellement. Avec Packer :
+Sans template, chaque VM devrait etre installee manuellement et configuree individuellement. Avec un template :
 
-- **Reproductibilité** : Le même template est utilisé pour toutes les VMs, garantissant une base identique.
-- **PRA** : En cas de sinistre, le template peut être recréé en quelques minutes depuis le code source.
-- **Gain de temps** : Les paquets sont pré-installés, réduisant le temps de provisionnement Ansible.
-- **Versionnement** : Le fichier `.pkr.hcl` est versionné dans Git, traçant chaque modification.
+- **Reproductibilite** : Le meme template est utilise pour toutes les VMs, garantissant une base identique.
+- **PRA** : En cas de sinistre, le template peut etre recree en quelques minutes depuis le script.
+- **Gain de temps** : Les paquets sont pre-installes, reduisant le temps de provisionnement Ansible.
+- **Versionnement** : Le script de creation est versionne dans Git.
 
-## 3. Structure des fichiers
+## 3. Approche retenue : Image Cloud Ubuntu + cloud-init
+
+Plutot qu'une installation ISO classique via Packer (plus longue, dependante d'un serveur HTTP pour l'autoinstall), nous utilisons directement l'**image cloud officielle Ubuntu** au format qcow2, qui supporte nativement cloud-init.
+
+### Avantages par rapport a Packer + ISO
+
+| Critere | Packer + ISO | Image Cloud + Script |
+|---------|-------------|---------------------|
+| Temps de creation | ~15-20 min | ~3 min |
+| Dependances | Packer + serveur HTTP | Script bash uniquement |
+| Taille image | ~2 Go (ISO) | ~700 Mo (qcow2) |
+| Complexite | Elevee (autoinstall, boot config) | Faible (telechargement + qm commands) |
+| Reproductibilite | Excellente | Excellente |
+
+### Note sur Packer
+
+Les fichiers Packer (`packer/`) sont conserves dans le depot comme approche alternative documentee. Ils fonctionnent pour des environnements ou l'image cloud n'est pas disponible.
+
+## 4. Structure des fichiers
 
 ```
-packer/
-├── ubuntu-k3s.pkr.hcl      # Configuration principale (source + build)
-├── variables.pkr.hcl        # Variables paramétrables
-└── http/
-    ├── user-data            # Cloud-init autoinstall (Ubuntu)
-    └── meta-data            # Métadonnées cloud-init (vide)
+setup/
+  create-template.sh     # Script principal de creation du template
+packer/                   # Approche alternative (conservee pour reference)
+  ubuntu-k3s.pkr.hcl     # Configuration Packer
+  variables.pkr.hcl      # Variables Packer
+  http/
+    user-data             # Cloud-init autoinstall
+    meta-data             # Metadonnees cloud-init
 ```
 
-## 4. Fonctionnement détaillé
+## 5. Fonctionnement du script `create-template.sh`
 
-### Phase 1 : Création de la VM temporaire
+### Phase 1 : Telechargement de l'image cloud
 
-Packer crée une VM temporaire sur Proxmox à partir de l'ISO Ubuntu 22.04 avec les caractéristiques suivantes :
+```bash
+wget https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img
+```
 
-| Paramètre | Valeur |
+L'image officielle Ubuntu 22.04 LTS (Jammy) au format qcow2, optimisee pour les environnements virtualises.
+
+### Phase 2 : Creation et configuration de la VM
+
+| Parametre | Valeur |
 |-----------|--------|
-| OS | Ubuntu 22.04 LTS (`l26`) |
+| VM ID | 9000 |
+| OS | Ubuntu 22.04 LTS (cloud image) |
 | CPU | 2 coeurs, type `host` |
-| RAM | 4096 Mo |
-| Disque | 30 Go, SCSI, format raw |
-| Réseau | virtio, bridge `vmbr0` |
-| Cloud-init | Activé |
+| RAM | 2048 Mo |
+| Disque | Import de l'image qcow2 |
+| Reseau | virtio, bridge `vmbr1` |
+| Cloud-init | Active (lecteur IDE2) |
+| Boot | Disque SCSI uniquement |
 
-### Phase 2 : Autoinstall via cloud-init
-
-Le fichier `http/user-data` est servi via le serveur HTTP intégré de Packer. Il configure :
-
-- **Locale** : `fr_FR.UTF-8`
-- **Clavier** : Français (`fr`)
-- **Utilisateur** : `ubuntu` avec droits sudo sans mot de passe
-- **SSH** : Serveur SSH activé, connexion par mot de passe temporairement autorisée
-- **Stockage** : LVM automatique
-- **Paquets** : `qemu-guest-agent`, `curl`, `wget`, `sudo`
-
-### Phase 3 : Provisionnement shell
-
-Après l'installation de base, Packer exécute un provisioner `shell` qui installe les paquets requis :
+### Phase 3 : Configuration cloud-init par defaut
 
 ```bash
-sudo apt-get install -y \
-  qemu-guest-agent \      # Communication Proxmox ↔ VM
-  curl wget \             # Téléchargements (script K3s, Helm)
-  gnupg2 \                # Gestion des clés GPG
-  software-properties-common \
-  apt-transport-https \
-  ca-certificates \       # Certificats TLS
-  nfs-common \            # Client NFS (montage volumes persistants)
-  open-iscsi              # Support iSCSI (requis par certains CSI)
+qm set 9000 --ciuser ubuntu
+qm set 9000 --ipconfig0 ip=dhcp
+qm set 9000 --agent enabled=1
 ```
 
-Puis nettoyage pour réduire la taille du template :
-
-```bash
-sudo apt-get autoremove -y
-sudo apt-get clean
-sudo cloud-init clean           # Réinitialise cloud-init pour le prochain boot
-sudo truncate -s 0 /etc/machine-id  # Force la régénération d'un ID unique par VM
-```
+- Utilisateur `ubuntu` cree automatiquement au premier boot
+- IP configurable via cloud-init (Terraform injecte l'IP statique au clonage)
+- QEMU Guest Agent active pour l'integration Proxmox
 
 ### Phase 4 : Conversion en template
 
-Packer convertit automatiquement la VM en **template Proxmox**, prêt à être cloné par Terraform.
+```bash
+qm template 9000
+```
 
-## 5. Variables paramétrables
-
-| Variable | Description | Valeur par défaut |
-|----------|-------------|-------------------|
-| `proxmox_url` | URL API Proxmox | (requis) |
-| `proxmox_username` | Utilisateur API | (requis) |
-| `proxmox_password` | Mot de passe API | (requis, sensible) |
-| `proxmox_node` | Nom du noeud Proxmox | (requis) |
-| `iso_file` | Chemin ISO sur le stockage | `local:iso/ubuntu-22.04.4-live-server-amd64.iso` |
-| `vm_id` | ID du template dans Proxmox | `9000` |
-| `storage_pool` | Pool de stockage | `local-lvm` |
-| `network_bridge` | Bridge réseau | `vmbr0` |
+La VM est convertie en template Proxmox, pret a etre clone par Terraform via `clone { vm_id = 9000 }`.
 
 ## 6. Commandes d'utilisation
 
 ```bash
-cd packer
-packer init .                            # Télécharge le plugin proxmox
-packer validate -var-file=variables.pkr.hcl .  # Validation syntaxique
-packer build -var-file=variables.pkr.hcl .     # Création du template
+# Sur le serveur Proxmox (en SSH root)
+bash create-template.sh
 ```
 
-## 7. Intérêt pour le PRA de la COGIP
+Ou telecharger depuis le depot :
 
-En cas de perte de l'infrastructure, le template VM peut être recréé en **~15 minutes** depuis le code source versionné. Combiné avec Terraform et Ansible, l'ensemble de l'infrastructure est reconstituable sans intervention manuelle, satisfaisant l'exigence de PRA du client Tesker.
+```bash
+curl -sL https://raw.githubusercontent.com/PeterMacgonagan2803/MSPR1-Deploy-Odoo/main/setup/create-template.sh | bash
+```
+
+## 7. Interet pour le PRA de la COGIP
+
+En cas de perte de l'infrastructure, le template VM peut etre recree en **~3 minutes** depuis le script versionne. Combine avec Terraform et Ansible, l'ensemble de l'infrastructure est reconstituable sans intervention manuelle, satisfaisant l'exigence de PRA du client Tesker.

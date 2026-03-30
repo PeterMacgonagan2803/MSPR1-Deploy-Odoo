@@ -14,8 +14,8 @@ set -e
 
 # ===== VARIABLES A ADAPTER =====
 PUBLIC_INTERFACE="eno1"       # Interface réseau publique (vérifier avec: ip a)
-PUBLIC_IP=""                  # Ton IP publique OVH (ex: 51.x.x.x)
-PUBLIC_GW=""                  # Gateway OVH (ex: 51.x.x.254)
+PUBLIC_IP="51.77.216.79"                  # Ton IP publique OVH (ex: 51.x.x.x)
+PUBLIC_GW="51.77.216.254"                  # Gateway OVH (ex: 51.x.x.254)
 INTERNAL_SUBNET="10.10.10"   # Sous-réseau interne pour les VMs
 # ================================
 
