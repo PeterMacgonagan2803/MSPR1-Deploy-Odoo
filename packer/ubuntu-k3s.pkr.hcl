@@ -64,12 +64,14 @@ build {
 
   provisioner "shell" {
     inline = [
-      "sudo apt-get update",
-      "sudo apt-get upgrade -y",
-      "sudo apt-get install -y qemu-guest-agent curl wget gnupg2 software-properties-common apt-transport-https ca-certificates nfs-common open-iscsi jq unzip",
+      "echo 'Attente fin des verrous apt (unattended-upgrades au premier boot)...'",
+      "bash -c 'for n in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60; do fuser /var/lib/dpkg/lock /var/lib/apt/lists/lock /var/cache/apt/archives/lock >/dev/null 2>&1 || exit 0; echo attente verrou apt; sleep 5; done'",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get update",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get upgrade -y",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-guest-agent curl wget gnupg2 software-properties-common apt-transport-https ca-certificates nfs-common open-iscsi jq unzip",
       "sudo systemctl enable qemu-guest-agent",
-      "sudo apt-get autoremove -y",
-      "sudo apt-get clean",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get clean",
       "sudo cloud-init clean",
       "sudo truncate -s 0 /etc/machine-id"
     ]
