@@ -46,12 +46,12 @@ source "proxmox-iso" "ubuntu-k3s" {
 
   boot_command = [
     "c<wait3>",
-    "linux /casper/vmlinuz --- autoinstall ip=10.10.10.99::10.10.10.1:255.255.255.0:::off ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/<enter><wait3>",
+    "linux /casper/vmlinuz --- autoinstall ip=10.10.10.99::10.10.10.1:255.255.255.0:ubuntu-k3s::off:8.8.8.8:8.8.4.4 ds=nocloud-net\\;s=http://{{ .HTTPIP }}:{{ .HTTPPort }}/<enter><wait3>",
     "initrd /casper/initrd<enter><wait3>",
     "boot<enter>"
   ]
 
-  boot_wait = "3s"
+  boot_wait = "5s"
 
   ssh_username = var.ssh_username
   ssh_password = var.ssh_password

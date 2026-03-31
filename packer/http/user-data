@@ -5,6 +5,33 @@ autoinstall:
   keyboard:
     layout: us
     variant: ""
+  source:
+    id: ubuntu-server
+    search_drivers: false
+  network:
+    version: 2
+    ethernets:
+      primary:
+        match:
+          name: "en*"
+        addresses:
+          - 10.10.10.99/24
+        routes:
+          - to: default
+            via: 10.10.10.1
+        nameservers:
+          addresses:
+            - 8.8.8.8
+            - 8.8.4.4
+  apt:
+    geoip: false
+    preserve_sources_list: false
+    mirror-selection:
+      primary:
+        - uri: "http://archive.ubuntu.com/ubuntu"
+          arches: [amd64]
+  drivers:
+    install: false
   identity:
     hostname: ubuntu-k3s
     username: ubuntu
@@ -18,4 +45,4 @@ autoinstall:
   late-commands:
     - "curtin in-target -- bash -c 'echo ubuntu:ubuntu | chpasswd'"
     - "curtin in-target -- bash -c 'echo \"ubuntu ALL=(ALL) NOPASSWD:ALL\" > /etc/sudoers.d/ubuntu'"
-    - "curtin in-target -- chmod 440 /etc/sudoers.d/ubuntu"
+    - curtin in-target -- chmod 440 /etc/sudoers.d/ubuntu
