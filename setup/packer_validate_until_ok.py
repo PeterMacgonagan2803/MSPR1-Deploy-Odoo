@@ -11,6 +11,7 @@ Variables d'environnement :
 from __future__ import annotations
 
 import json
+import logging
 import os
 import re
 import sys
@@ -20,6 +21,9 @@ import urllib.request
 from pathlib import Path
 
 import paramiko
+
+# Évite le bruit Paramiko / libssh sur stderr (ex. « Secsh channel ... refused ») sous PowerShell.
+logging.getLogger("paramiko").setLevel(logging.CRITICAL)
 
 HOST = os.environ.get("MSPR_PROXMOX_HOST", "51.77.216.79")
 USER = os.environ.get("MSPR_PROXMOX_USER", "root")
@@ -99,9 +103,21 @@ git fetch origin && git reset --hard origin/main
 HASH=$(openssl passwd -6 ubuntu)
 sed -i "s|__UBUNTU_HASH__|${{HASH}}|" packer/http/user-data
 
-qm stop {VM_ID} --timeout 20 2>/dev/null || true
-sleep 2
-qm destroy {VM_ID} --purge 2>/dev/null || true
+# Packer échoue si vm_id existe déjà ; ne pas masquer un destroy raté (|| true).
+if qm config {VM_ID} >/dev/null 2>&1; then
+  qm stop {VM_ID} --timeout 45 2>/dev/null || true
+  sleep 3
+  for n in 1 2 3 4 5 6; do
+    qm destroy {VM_ID} --purge 2>/dev/null && break
+    qm stop {VM_ID} --timeout 30 2>/dev/null || true
+    sleep 2
+  done
+  if qm config {VM_ID} >/dev/null 2>&1; then
+    echo "ERREUR: VM {VM_ID} toujours presente apres destroy (verrou qm / tache en cours?)"
+    qm list | grep {VM_ID} || true
+    exit 1
+  fi
+fi
 
 cd packer
 packer init .
