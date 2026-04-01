@@ -211,6 +211,11 @@ for f in ["terraform.tfstate", "terraform.tfstate.backup", ".terraform.lock.hcl"
     if os.path.exists(p):
         os.remove(p)
 
+# Tuer tout terraform.exe residuel d'une execution precedente
+import subprocess as _sp
+_sp.run(["taskkill", "/F", "/IM", "terraform.exe"], capture_output=True)
+time.sleep(2)
+
 rc = terraform("init -upgrade -input=false", tf_dir)
 if rc != 0:
     webhook("*ECHEC* Terraform init")
@@ -219,6 +224,10 @@ if rc != 0:
 rc = terraform("apply -auto-approve -parallelism=1 -input=false", tf_dir)
 if rc != 0:
     log("Terraform echoue, nettoyage et retry...")
+    # Tuer tout processus terraform local qui lockerait le tfstate
+    import subprocess as _sp
+    _sp.run(["taskkill", "/F", "/IM", "terraform.exe"], capture_output=True)
+    time.sleep(3)
     ssh_run("""
     for vmid in 200 201 202 203; do
         qm stop $vmid --timeout 10 2>/dev/null || true
@@ -226,11 +235,16 @@ if rc != 0:
     done
     rm -f /var/lock/pve-manager/pve-storage-*
     """, label="Cleanup VMs")
-    for f in ["terraform.tfstate", "terraform.tfstate.backup"]:
+    for f in ["terraform.tfstate", "terraform.tfstate.backup", ".terraform.lock.hcl"]:
         p = os.path.join(tf_dir, f)
-        if os.path.exists(p):
-            os.remove(p)
-    time.sleep(5)
+        for _ in range(5):
+            try:
+                if os.path.exists(p):
+                    os.remove(p)
+                break
+            except PermissionError:
+                time.sleep(2)
+    time.sleep(10)
     rc = terraform("apply -auto-approve -parallelism=1 -input=false", tf_dir)
     if rc != 0:
         webhook("*ECHEC* Terraform apply x2")
