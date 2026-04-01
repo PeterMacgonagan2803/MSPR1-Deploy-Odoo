@@ -43,8 +43,8 @@ autoinstall:
     layout:
       name: lvm
   late-commands:
-    # Mot de passe builder garanti (le hash injecté seul peut être refusé par PAM selon l’image).
-    - curtin in-target -- sh -c 'echo "ubuntu:ubuntu" | chpasswd'
+    # Pas de chpasswd en clair : PAM (pam_pwquality) échoue souvent sur "ubuntu" dans in-target.
+    # Le mot de passe vient de identity.password + hash __UBUNTU_HASH__ injecté avant packer build.
     # Forcer login mot de passe pour Packer (cloud-init / défauts peuvent le désactiver).
     - curtin in-target -- sh -c 'printf "%s\n" "PasswordAuthentication yes" "PubkeyAuthentication yes" "KbdInteractiveAuthentication yes" > /etc/ssh/sshd_config.d/50-packer-temp.conf && chmod 644 /etc/ssh/sshd_config.d/50-packer-temp.conf'
     - curtin in-target -- sh -c 'printf "%s\n" "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-ubuntu-nopasswd && chmod 440 /etc/sudoers.d/90-ubuntu-nopasswd'
