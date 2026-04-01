@@ -55,7 +55,7 @@ source "proxmox-iso" "ubuntu-k3s" {
 
   ssh_username = var.ssh_username
   ssh_password = var.ssh_password
-  ssh_timeout  = "30m"
+  ssh_timeout  = "120m"
   ssh_host     = "10.10.10.99"
 }
 
