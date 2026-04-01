@@ -93,6 +93,14 @@ build {
       "sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get clean",
       "sudo rm -f /etc/netplan/*.yaml /etc/netplan/*.yml",
+
+      "echo '=== Nettoyage GRUB (supprime ip= et ds=nocloud-net laisses par autoinstall) ==='",
+      "sudo sed -i 's/autoinstall//g' /etc/default/grub",
+      "sudo sed -i 's/ip=[^ ]*//g' /etc/default/grub",
+      "sudo sed -i 's/ds=nocloud-net[^ ]*//g' /etc/default/grub",
+      "sudo sed -i 's/  */ /g' /etc/default/grub",
+      "sudo update-grub",
+
       "sudo cloud-init clean --logs",
       "sudo truncate -s 0 /etc/machine-id"
     ]
