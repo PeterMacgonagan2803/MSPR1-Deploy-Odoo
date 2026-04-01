@@ -83,6 +83,13 @@ build {
     inline = [
       "sudo DEBIAN_FRONTEND=noninteractive apt-get install -y qemu-guest-agent curl wget gnupg2 software-properties-common apt-transport-https ca-certificates nfs-common open-iscsi jq unzip",
       "sudo systemctl enable qemu-guest-agent",
+
+      "echo '=== Suppression snapd (bloque le boot 5-10min via snapd.seeded.service) ==='",
+      "sudo systemctl disable snapd.service snapd.socket snapd.seeded.service 2>/dev/null || true",
+      "sudo DEBIAN_FRONTEND=noninteractive apt-get purge -y snapd 2>/dev/null || true",
+      "sudo apt-mark hold snapd 2>/dev/null || true",
+      "sudo rm -rf /snap /var/snap /var/lib/snapd /var/cache/snapd /home/*/.snap",
+
       "sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get clean",
       "sudo rm -f /etc/netplan/*.yaml /etc/netplan/*.yml",
