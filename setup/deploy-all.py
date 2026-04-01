@@ -81,17 +81,23 @@ def ssh_must(cmd, timeout=900, label=""):
 
 def terraform(args, cwd):
     log(f"Terraform: {args}")
-    result = subprocess.run(
+    proc = subprocess.Popen(
         f"terraform {args}", cwd=cwd, shell=True,
-        capture_output=True, text=True, timeout=600
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        text=True, encoding="utf-8", errors="replace"
     )
-    if result.stdout:
-        for line in result.stdout.strip().split("\n")[-20:]:
+    lines = []
+    try:
+        for line in proc.stdout:
+            line = line.rstrip()
+            lines.append(line)
             print(f"  {line}", flush=True)
-    if result.returncode != 0:
-        for line in (result.stderr or "").strip().split("\n")[-15:]:
-            print(f"  [ERR] {line}", flush=True)
-    return result.returncode
+        proc.wait(timeout=1800)
+    except subprocess.TimeoutExpired:
+        proc.kill()
+        print("  [ERR] terraform timeout apres 30min", flush=True)
+        return 1
+    return proc.returncode
 
 tf_dir = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "terraform"))
 
