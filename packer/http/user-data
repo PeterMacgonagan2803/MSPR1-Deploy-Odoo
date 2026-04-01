@@ -45,6 +45,7 @@ autoinstall:
   late-commands:
     # Pas de chpasswd en clair : PAM (pam_pwquality) échoue souvent sur "ubuntu" dans in-target.
     # Le mot de passe vient de identity.password + hash __UBUNTU_HASH__ injecté avant packer build.
-    # Forcer login mot de passe pour Packer (cloud-init / défauts peuvent le désactiver).
-    - curtin in-target -- sh -c 'printf "%s\n" "PasswordAuthentication yes" "PubkeyAuthentication yes" "KbdInteractiveAuthentication yes" > /etc/ssh/sshd_config.d/50-packer-temp.conf && chmod 644 /etc/ssh/sshd_config.d/50-packer-temp.conf'
+    # Forcer login mot de passe pour Packer. OpenSSH : la première valeur lue gagne pour chaque directive ;
+    # 50-cloud-init.conf est trié avant 50-packer-*, donc un fichier 01-... est lu en premier.
+    - curtin in-target -- sh -c 'printf "%s\n" "PasswordAuthentication yes" "PubkeyAuthentication yes" "KbdInteractiveAuthentication yes" > /etc/ssh/sshd_config.d/01-packer-password.conf && chmod 644 /etc/ssh/sshd_config.d/01-packer-password.conf'
     - curtin in-target -- sh -c 'printf "%s\n" "ubuntu ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/90-ubuntu-nopasswd && chmod 440 /etc/sudoers.d/90-ubuntu-nopasswd'
