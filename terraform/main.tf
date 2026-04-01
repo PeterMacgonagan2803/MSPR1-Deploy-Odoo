@@ -61,8 +61,14 @@ resource "proxmox_virtual_environment_vm" "k3s_cluster" {
   }
 
   agent {
-    enabled = false
+    enabled = true
   }
+
+  operating_system {
+    type = "l26"
+  }
+
+  serial_device {}
 
   disk {
     interface    = "scsi0"

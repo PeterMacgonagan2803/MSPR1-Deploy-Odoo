@@ -258,8 +258,8 @@ ssh-keygen -t ed25519 -f /root/.ssh/id_ansible -N '' -q
 echo "SSH key OK"
 """, label="[4/7] Install Ansible + clone")
 
-log("Attente boot VMs (60s)...")
-time.sleep(60)
+log("Attente boot VMs (120s - cloud-init + RNG)...")
+time.sleep(120)
 
 ssh_must("""
 PROXKEY=$(cat /root/.ssh/id_ansible.pub)
@@ -279,16 +279,16 @@ done
 echo "SSH keys injected, VMs rebooting"
 """, label="Inject SSH keys + reboot VMs")
 
-log("Attente reboot (90s)...")
-time.sleep(90)
+log("Attente reboot (150s - cloud-init second boot)...")
+time.sleep(150)
 
 ssh_run("""
 rm -f /root/.ssh/known_hosts
 ALL_OK=true
 for ip in 10.10.10.10 10.10.10.11 10.10.10.12 10.10.10.13; do
     OK=false
-    for i in $(seq 1 12); do
-        if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=5 -i /root/.ssh/id_ansible ubuntu@$ip "echo OK" 2>/dev/null; then
+    for i in $(seq 1 30); do
+        if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -i /root/.ssh/id_ansible ubuntu@$ip "echo OK" 2>/dev/null; then
             echo "$ip: SSH OK"; OK=true; break
         fi
         sleep 10
@@ -310,15 +310,27 @@ done
 echo "DPKG_DONE"
 """, timeout=600, label="Fix dpkg toutes VMs")
 
-log("Install kubernetes Python sur CP...")
+log("Pause 30s apres dpkg (evite coupure reseau temporaire post-apt)...")
+time.sleep(30)
+
+log("Install kubernetes Python sur CP (avec retry)...")
 ssh_must("""
-ssh -o StrictHostKeyChecking=no -i /root/.ssh/id_ansible ubuntu@10.10.10.10 bash -c '
-sudo apt-get update -qq 2>&1 | tail -1
-sudo apt-get install -y python3-kubernetes python3-pip python3-yaml python3-jsonpatch 2>&1 | tail -5
-python3 -c "import kubernetes; print(kubernetes.__version__)"
-echo K8S_PY_OK
-'
-""", timeout=300, label="Install kubernetes lib CP")
+for attempt in 1 2 3; do
+  echo "Tentative $attempt..."
+  OK=false
+  for w in $(seq 1 12); do
+    if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -i /root/.ssh/id_ansible ubuntu@10.10.10.10 \
+      'sudo apt-get update -qq 2>&1 | tail -1 && sudo apt-get install -y python3-kubernetes python3-pip python3-yaml python3-jsonpatch 2>&1 | tail -3 && python3 -c "import kubernetes; print(kubernetes.__version__)" && echo K8S_PY_OK' 2>&1; then
+      OK=true; break
+    fi
+    echo "CP pas pret ($w/12), attente 10s..."
+    sleep 10
+  done
+  [ "$OK" = "true" ] && break
+  [ "$attempt" -lt 3 ] && echo "Retry dans 20s..." && sleep 20
+done
+[ "$OK" = "false" ] && echo "ECHEC K8S_PY apres 3 tentatives" && exit 1
+""", timeout=600, label="Install kubernetes lib CP")
 
 ssh_must("""
 cd /root/MSPR1-Deploy-Odoo/ansible

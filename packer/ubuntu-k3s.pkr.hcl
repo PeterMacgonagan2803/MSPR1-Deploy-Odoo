@@ -21,10 +21,11 @@ source "proxmox-iso" "ubuntu-k3s" {
   vm_name              = "ubuntu-k3s-template"
   template_description = "Ubuntu 22.04 LTS - Template K3s pour MSPR COGIP (via Packer)"
 
-  os       = "l26"
-  cpu_type = "host"
-  cores    = 2
-  memory   = 4096
+  os          = "l26"
+  cpu_type    = "host"
+  cores       = 2
+  memory      = 4096
+  qemu_agent  = true
 
   scsi_controller = "virtio-scsi-single"
 
