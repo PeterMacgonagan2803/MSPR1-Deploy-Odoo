@@ -69,7 +69,7 @@ Projet MSPR TPRE961 -- Infrastructure virtualisee pour le deploiement de l'ERP O
 
 ### Option A : Deploiement automatique complet
 
-Le script `deploy-all.py` orchestre tout depuis zero (~20 minutes) :
+Le script `deploy-all.py` orchestre tout depuis zero (dont **template = Packer** ISO sur le nœud ; prévoir **~1 à 2 h** selon téléchargement ISO et build) :
 
 ```powershell
 cd setup
@@ -82,9 +82,11 @@ python deploy-all.py
 
 #### 1. Creer le template VM sur Proxmox
 
+Par **`deploy-all.py`** : étape 2 = `packer build` (répertoire `packer/`). Sinon manuel :
+
 ```bash
 ssh root@<IP-SERVEUR-OVH>
-bash setup/create-template.sh
+bash setup/create-template.sh   # variante cloud-image (hors Packer)
 ```
 
 #### 2. Deployer l'infrastructure avec Terraform
@@ -202,7 +204,7 @@ ansible-playbook playbooks/site.yml --ask-vault-pass
 
 ## PRA (Plan de Reprise d'Activite)
 
-Temps de reconstruction complete depuis zero : **~20 minutes** via `deploy-all.py`.
+Temps de reconstruction complete depuis zero : **~1–2 h** via `deploy-all.py` (Packer + Terraform + Ansible + Odoo).
 
 ```
 Template VM (~2min) -> Terraform (~2min) -> Ansible K3s (~3min) -> Odoo (~5min) -> Init (~5min)

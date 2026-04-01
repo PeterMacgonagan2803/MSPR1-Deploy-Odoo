@@ -1,7 +1,9 @@
 """
 MSPR COGIP - Deploiement complet depuis zero (version finale).
-Reset Proxmox + Template + Terraform + Ansible + Odoo Init + NAT
+Reset Proxmox + Template (Packer ISO) + Terraform + Ansible + Odoo Init + NAT
 Webhook a chaque etape.
+
+Env optionnel : MSPR_PROXMOX_NODE (defaut ns3139245), MSPR_PACKER_TEMPLATE_VMID (defaut 9000).
 """
 import paramiko
 import sys
@@ -20,6 +22,9 @@ sys.stderr.reconfigure(encoding="utf-8", errors="replace")
 HOST = "51.77.216.79"
 USER = "root"
 PASS = "thoughtpolice"
+PROXMOX_NODE = os.environ.get("MSPR_PROXMOX_NODE", "ns3139245")
+PACKER_TEMPLATE_VMID = int(os.environ.get("MSPR_PACKER_TEMPLATE_VMID", "9000"))
+MSPR_GIT_URL = "https://github.com/PeterMacgonagan2803/MSPR1-Deploy-Odoo.git"
 WEBHOOK_URL = "https://chat.googleapis.com/v1/spaces/AAQAKGrYeME/messages?key=AIzaSyDdI0hCZtE6vySjMm-WEfRq3CPzqKqqsHI&token=UCuG1Mtp_pW8gwIO3MuyKzuobAER3tA85zusONbJh34"
 
 TOTAL_START = time.time()
@@ -124,53 +129,78 @@ webhook(f"*[1/7]* Reset OK ({fmt(step_times['1_reset'])})")
 
 # =========================== ETAPE 2 ================================
 t = time.time()
-webhook("*[2/7]* Creation template VM...")
+webhook("*[2/7]* Template Proxmox via Packer (ISO autoinstall)...")
 
-ssh_must("""
+ssh_must(
+    rf"""
 set -e
-TEMPLATE_ID=9000
-STORAGE="local"
-BRIDGE="vmbr1"
-IMG="/tmp/jammy-cloud.img"
+killall -9 packer 2>/dev/null || true
 
-echo "[1] Download Ubuntu 22.04 cloud image..."
-wget -q -O "$IMG" "https://cloud-images.ubuntu.com/jammy/current/jammy-server-cloudimg-amd64.img"
+# Packer binaire (si absent sur le nœud)
+if ! command -v packer >/dev/null 2>&1; then
+  PACKER_VER=1.11.2
+  wget -qO /tmp/packer.zip "https://releases.hashicorp.com/packer/${{PACKER_VER}}/packer_${{PACKER_VER}}_linux_amd64.zip"
+  unzip -oq /tmp/packer.zip -d /usr/local/bin
+  chmod +x /usr/local/bin/packer
+fi
+packer version | head -1
 
-echo "[2] Install paquets minimaux..."
-dpkg -l libguestfs-tools &>/dev/null || apt-get install -y -qq libguestfs-tools > /dev/null 2>&1
-virt-customize -a "$IMG" \
-    --install qemu-guest-agent,curl,wget,nfs-common,open-iscsi,jq,unzip \
-    --run-command 'systemctl enable qemu-guest-agent' \
-    --run-command 'dpkg --configure -a' \
-    --run-command 'apt --fix-broken install -y' \
-    --run-command 'apt-get clean' 2>&1 | tail -3
+# ISO live server attendu par packer/variables.pkr.hcl (local:iso/...)
+ISO_PATH="/var/lib/vz/template/iso/ubuntu-22.04.5-live-server-amd64.iso"
+mkdir -p /var/lib/vz/template/iso
+if [ ! -f "$ISO_PATH" ]; then
+  echo "[Packer] Telechargement ISO Ubuntu 22.04.5 live-server (peut prendre plusieurs minutes)..."
+  wget -O "$ISO_PATH" "https://releases.ubuntu.com/22.04/ubuntu-22.04.5-live-server-amd64.iso"
+fi
 
-echo "[3] Resize 30G..."
-qemu-img resize "$IMG" 30G
+# Depôt MSPR (étape 1 a supprime /root/MSPR1-Deploy-Odoo)
+cd /root
+rm -rf MSPR1-Deploy-Odoo
+git clone --depth 1 -b main "{MSPR_GIT_URL}" MSPR1-Deploy-Odoo
+cd MSPR1-Deploy-Odoo
+HASH=$(openssl passwd -6 ubuntu)
+sed -i "s|__UBUNTU_HASH__|${{HASH}}|" packer/http/user-data
 
-echo "[4] Create VM..."
-qm create $TEMPLATE_ID --name "ubuntu-k3s-template" \
-    --memory 4096 --cores 2 --cpu host \
-    --net0 virtio,bridge=$BRIDGE \
-    --scsihw virtio-scsi-single \
-    --agent enabled=1 --ostype l26 --onboot 0
+TEMPLATE_ID={PACKER_TEMPLATE_VMID}
+if qm config "$TEMPLATE_ID" >/dev/null 2>&1; then
+  qm stop "$TEMPLATE_ID" --timeout 45 2>/dev/null || true
+  sleep 3
+  for n in 1 2 3 4 5 6; do
+    qm destroy "$TEMPLATE_ID" --purge 2>/dev/null && break
+    qm stop "$TEMPLATE_ID" --timeout 30 2>/dev/null || true
+    sleep 2
+  done
+  if qm config "$TEMPLATE_ID" >/dev/null 2>&1; then
+    echo "ERREUR: VM $TEMPLATE_ID toujours presente apres destroy"
+    exit 1
+  fi
+fi
 
-echo "[5] Import disk..."
-qm importdisk $TEMPLATE_ID "$IMG" $STORAGE --format qcow2 2>&1 | tail -2
+cd packer
+packer init .
+export PACKER_LOG=1
+export PACKER_LOG_PATH=/tmp/packer-mspr-deploy.log
+rm -f /tmp/packer-tee-mspr-deploy.log
+set +e
+set -o pipefail
+packer build \
+  -var 'proxmox_password={PASS}' \
+  -var 'proxmox_node={PROXMOX_NODE}' \
+  -var 'vm_id={PACKER_TEMPLATE_VMID}' \
+  . 2>&1 | tee /tmp/packer-tee-mspr-deploy.log
+RC=${{PIPESTATUS[0]}}
+set -e
+if [ "$RC" -ne 0 ]; then exit "$RC"; fi
 
-echo "[6] Configure..."
-qm set $TEMPLATE_ID --scsi0 ${STORAGE}:${TEMPLATE_ID}/vm-${TEMPLATE_ID}-disk-0.qcow2
-qm set $TEMPLATE_ID --ide2 ${STORAGE}:cloudinit
-qm set $TEMPLATE_ID --boot order=scsi0
-qm set $TEMPLATE_ID --serial0 socket --vga serial0
-
-echo "[7] Convert to template..."
-qm template $TEMPLATE_ID
-rm -f "$IMG"
-echo "TEMPLATE_OK"
-""", timeout=600, label="[2/7] CREATION TEMPLATE VM")
+# Le plugin Proxmox convertit la VM en template (vm_id = Terraform clone source)
+qm list | grep "$TEMPLATE_ID" || true
+echo "PACKER_TEMPLATE_OK"
+""",
+    timeout=10800,
+    label="[2/7] PACKER template (ISO autoinstall)",
+)
 step_times["2_template"] = time.time() - t
-webhook(f"*[2/7]* Template OK ({fmt(step_times['2_template'])})")
+webhook(f"*[2/7]* Packer template OK ({fmt(step_times['2_template'])})")
 
 # =========================== ETAPE 3 ================================
 t = time.time()
