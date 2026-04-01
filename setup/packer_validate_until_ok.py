@@ -202,12 +202,21 @@ def ssh_verify_loop(stop: threading.Event, out: dict) -> None:
         time.sleep(20)
 
 
+def _write_stdout_line(line: str) -> None:
+    """Évite UnicodeEncodeError sous Windows (cp1252) si Packer affiche → ou autre hors latin-1."""
+    try:
+        sys.stdout.write(line)
+    except UnicodeEncodeError:
+        enc = getattr(sys.stdout, "encoding", None) or "utf-8"
+        sys.stdout.buffer.write(line.encode(enc, errors="replace"))
+    sys.stdout.flush()
+
+
 def run_packer_once() -> int:
     ssh = ssh_connect()
     _, stdout, stderr = ssh.exec_command(REMOTE_PACKER_CMD, timeout=PACKER_SSH_TIMEOUT)
     for line in iter(stdout.readline, ""):
-        sys.stdout.write(line)
-        sys.stdout.flush()
+        _write_stdout_line(line)
     err = stderr.read().decode("utf-8", errors="replace")
     code = stdout.channel.recv_exit_status()
     ssh.close()
@@ -271,4 +280,9 @@ def main() -> None:
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        try:
+            sys.stdout.reconfigure(errors="replace")
+        except Exception:
+            pass
     main()
