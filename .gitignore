@@ -37,6 +37,17 @@ setup/*.tfvars*
 Thumbs.db
 desktop.ini
 
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Logs locaux (deploy / packer sur poste dev)
+setup/_*.log
+
+# Captures / brouillons locaux
+setup/image.png
+
 # IDE
 .vscode/
 .idea/
