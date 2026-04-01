@@ -95,10 +95,9 @@ build {
       "sudo rm -f /etc/netplan/*.yaml /etc/netplan/*.yml",
 
       "echo '=== Nettoyage GRUB (supprime ip= et ds=nocloud-net laisses par autoinstall) ==='",
-      "sudo sed -i 's/autoinstall//g' /etc/default/grub",
-      "sudo sed -i 's/ip=[^ ]*//g' /etc/default/grub",
-      "sudo sed -i 's/ds=nocloud-net[^ ]*//g' /etc/default/grub",
-      "sudo sed -i 's/  */ /g' /etc/default/grub",
+      "sudo sed -i 's|^GRUB_CMDLINE_LINUX=.*|GRUB_CMDLINE_LINUX=\"\"|' /etc/default/grub",
+      "sudo sed -i 's|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"quiet\"|' /etc/default/grub",
+      "grep GRUB_CMDLINE /etc/default/grub",
       "sudo update-grub",
 
       "sudo cloud-init clean --logs",
