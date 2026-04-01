@@ -84,7 +84,8 @@ build {
       "sudo systemctl enable qemu-guest-agent",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get autoremove -y",
       "sudo DEBIAN_FRONTEND=noninteractive apt-get clean",
-      "sudo cloud-init clean",
+      "sudo rm -f /etc/netplan/*.yaml /etc/netplan/*.yml",
+      "sudo cloud-init clean --logs",
       "sudo truncate -s 0 /etc/machine-id"
     ]
   }
