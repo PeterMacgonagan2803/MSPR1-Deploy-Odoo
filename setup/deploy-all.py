@@ -101,7 +101,7 @@ t = time.time()
 webhook("*[1/7]* Reset Proxmox...")
 
 ssh_must("""
-for vmid in 200 201 202 203; do
+for vmid in 200 201 202 203 9002; do
     qm stop $vmid --timeout 15 2>/dev/null || true
     sleep 1
     qm destroy $vmid --purge 2>/dev/null && echo "VM $vmid detruite" || echo "VM $vmid: absente"
