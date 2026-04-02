@@ -360,7 +360,8 @@ for attempt in 1 2 3; do
   [ "$OK" = "true" ] && break
   [ "$attempt" -lt 3 ] && echo "Retry dans 20s..." && sleep 20
 done
-[ "$OK" = "false" ] && echo "ECHEC K8S_PY apres 3 tentatives" && exit 1
+if [ "$OK" = "false" ]; then echo "ECHEC K8S_PY apres 3 tentatives"; exit 1; fi
+echo "K8S_PY_DONE"
 """, timeout=600, label="Install kubernetes lib CP")
 
 ssh_must("""
