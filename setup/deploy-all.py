@@ -59,9 +59,15 @@ def ssh_run(cmd, timeout=900, label=""):
     ssh = ssh_conn()
     log(label)
     stdin, stdout, stderr = ssh.exec_command(cmd, timeout=timeout)
-    out = stdout.read().decode("utf-8", errors="replace")
-    err = stderr.read().decode("utf-8", errors="replace")
-    code = stdout.channel.recv_exit_status()
+    try:
+        out = stdout.read().decode("utf-8", errors="replace")
+        err = stderr.read().decode("utf-8", errors="replace")
+        code = stdout.channel.recv_exit_status()
+    except Exception as e:
+        print(f"  [WARN] ssh_run timeout/erreur ({label}): {e}", flush=True)
+        try: ssh.close()
+        except: pass
+        return "", str(e), 1
     ssh.close()
     if out:
         for line in out.strip().split("\n")[-40:]:
@@ -294,7 +300,12 @@ done
 rm -f $TMPFILE
 
 for vmid in 200 201 202 203; do
-    qm reboot $vmid 2>&1 || (qm stop $vmid 2>/dev/null; sleep 1; qm start $vmid 2>/dev/null)
+    qm reboot $vmid 2>/dev/null && echo "VM $vmid: reboot OK" && continue
+    echo "VM $vmid: reboot echoue, tentative reset..."
+    qm reset $vmid 2>/dev/null && echo "VM $vmid: reset OK" && continue
+    echo "VM $vmid: reset echoue, stop+start..."
+    qm stop $vmid --timeout 30 2>/dev/null; sleep 3; qm start $vmid 2>/dev/null
+    echo "VM $vmid: start OK"
 done
 echo "SSH keys injected, VMs rebooting"
 """, label="Inject SSH keys + reboot VMs")
@@ -307,7 +318,7 @@ rm -f /root/.ssh/known_hosts
 ALL_OK=true
 for ip in 10.10.10.10 10.10.10.11 10.10.10.12 10.10.10.13; do
     OK=false
-    for i in $(seq 1 30); do
+    for i in $(seq 1 48); do
         if ssh -o StrictHostKeyChecking=no -o ConnectTimeout=8 -i /root/.ssh/id_ansible ubuntu@$ip "echo OK" 2>/dev/null; then
             echo "$ip: SSH OK"; OK=true; break
         fi
@@ -317,7 +328,7 @@ for ip in 10.10.10.10 10.10.10.11 10.10.10.12 10.10.10.13; do
 done
 [ "$ALL_OK" = "false" ] && exit 1
 echo "ALL_SSH_OK"
-""", timeout=300, label="Test SSH toutes VMs")
+""", timeout=600, label="Test SSH toutes VMs")
 
 log("Fix dpkg + install paquets sur toutes les VMs...")
 ssh_must("""

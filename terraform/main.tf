@@ -26,8 +26,8 @@ locals {
     }
     "nfs-server" = {
       vmid   = 203
-      cores  = 1
-      memory = 1024
+      cores  = 2
+      memory = 2048
       disk   = 50
       ip     = var.ip_nfs
       desc   = "Serveur NFS - Stockage persistant K8s"
